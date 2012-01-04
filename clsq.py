@@ -1,6 +1,6 @@
 
 from numpy import matrix, zeros, set_printoptions, linalg, delete
-from math import sqrt, exp
+from math import sqrt
 from ROOT import TMath
 
 
@@ -37,15 +37,28 @@ class clsqSolver:
         self.pm= None
         self.pminv= None
         self.niterations= 0
-        self.mparnames= mparnames
-        self.uparnames= uparnames
+        self.uparnames= self.__setParNames( uparnames, len(self.uparv) )
+        self.mparnames= self.__setParNames( mparnames, len(self.mparv) )
         self.maxiterations= maxiter
         self.deltachisq= deltachisq
         self.constrdim= None
+        self.fixedUparFunctions= {}
+        self.fixedMparFunctions= {}
         return
+
+    def __setParNames( self, parnames, npar ):
+        myparnames= []
+        for ipar in range( npar ):
+            if parnames and ipar in parnames:
+                parname= parnames[ipar]
+            else:
+                parname= "Parameter " + repr(ipar).rjust(2)
+            myparnames.append( parname )
+        return myparnames
 
     def solve( self, lpr=False, lBlobel=False ):
         self.lBlobel= lBlobel
+        self.mparv= self.datav.copy()
         datadim= self.datav.shape[0]
         upardim= self.uparv.shape[0]
         constrv= self.constraints.calculate( self.mparv, self.uparv )
@@ -87,7 +100,8 @@ class clsqSolver:
             chisqnew= self.calcChisq( dcdmpm, c33 )
             if lpr:
                 print "Chi^2=", chisqnew
-            if abs(chisqnew-self.chisq) < self.deltachisq:
+            if( abs(chisqnew-self.chisq) < self.deltachisq and
+                iiter > 0 ):
                 break
             self.chisq= chisqnew
         return
@@ -141,19 +155,19 @@ class clsqSolver:
     def getNdof( self ):
         return len(self.datav) + self.constrdim - len(self.uparv)
 
-    def __printPars( self, par, parerrs, parnames, ffmt=".4f", pulls=None ):
+    def __printPars( self, par, parerrs, parnames, fixedParFunctions,
+                     ffmt=".4f", pulls=None ):
         for ipar in range(len(par)):
-            name= "Parameter " + repr(ipar).rjust(2)
-            if parnames and ipar in parnames:
-                name= parnames[ipar]
+            name= parnames[ipar]
             print "{0:>15s}:".format( name ),
             fmtstr= "{0:10"+ffmt+"} +/- {1:10"+ffmt+"}"
             print fmtstr.format( par[ipar], parerrs[ipar] ),
             if pulls:
                 fmtstr= "{0:10"+ffmt+"}"
-                print fmtstr.format( pulls[ipar] )
-            else:
-                print
+                print fmtstr.format( pulls[ipar] ),
+            if ipar in fixedParFunctions:
+                print "(fixed)",
+            print
         return
 
     def printTitle( self ):
@@ -187,7 +201,8 @@ class clsqSolver:
         print "           Name       Value          Error"
         upar= self.getUpar()
         self.__printPars( upar, self.getUparErrors(), 
-                          self.uparnames, ffmt=ffmt )
+                          self.uparnames, self.fixedUparFunctions,
+                          ffmt=ffmt )
         set_printoptions( linewidth=132, precision=4 )
         if len(upar) > 1:
             if cov:
@@ -200,7 +215,8 @@ class clsqSolver:
         print "           Name       Value          Error       Pull"
         mpar= self.getMpar()
         self.__printPars( mpar, self.getMparErrors(), 
-                          self.mparnames, ffmt=ffmt, 
+                          self.mparnames, self.fixedMparFunctions,
+                          ffmt=ffmt, 
                           pulls=self.getMparPulls() )
         if len(mpar) > 1:
             if cov:
@@ -231,7 +247,7 @@ class clsqSolver:
         upardim= self.uparv.shape[0]
         errors= []
         for i in range( datadim, datadim+upardim ):
-            errors.append( sqrt( self.pminv[i,i] ) )
+            errors.append( sqrt( abs(self.pminv[i,i]) ) )
         return errors
     def getMparErrors( self ):
         if self.pminv == None:
@@ -348,17 +364,154 @@ class clsqSolver:
         errorMatrix[datadim+upardim:,datadim+upardim:]= -c33
         return c11, c21, c31, c32, c33, errorMatrix
 
+    def fixUpar( self, ipar, val=None, lpr=True ):
+        if val == None:
+            val= self.uparv.ravel().tolist()[0][ipar]
+        fixUparConstraint= funcobj( ipar, val )
+        self.fixedUparFunctions[ipar]= fixUparConstraint
+        self.constraints.addUparConstraint( fixUparConstraint )
+        if lpr:
+            print "Fixed unmeasured parameter", self.uparnames[ipar], "to", val
+        return
+    def fixUparByName( self, name, val=None, lpr=True ):
+        ipar= self.uparnames.index( name )
+        self.fixUpar( ipar, val, lpr )
+        return
+    def releaseUpar( self, ipar, lpr=True ):
+        fixUparConstraint= self.fixedUparFunctions[ipar]
+        self.constraints.removeUparConstraint( fixUparConstraint )
+        del self.fixedUparFunctions[ipar]
+        if lpr:
+            print "Released unmeasured parameter", self.uparnames[ipar]
+        return
+    def releaseUparByName( self, name, lpr=True ):
+        ipar= self.uparnames.index( name )
+        self.releaseUpar( ipar, lpr )
+        return
+
+    def fixMpar( self, ipar, val=None, lpr=True ):
+        if val == None:
+            val= self.mparv.ravel().tolist()[0][ipar]
+        fixMparConstraint= funcobj( ipar, val )
+        self.fixedMparFunctions[ipar]= fixMparConstraint
+        self.constraints.addMparConstraint( fixMparConstraint )
+        if lpr:
+            print "Fixed measured parameter", self.uparnames[ipar], "to", val
+        return
+    def fixMparByName( self, name, val=None, lpr=True ):
+        ipar= self.mparnames.index( name )
+        self.fixMpar( ipar, val, lpr )
+        return
+    def releaseMpar( self, ipar, lpr=True ):
+        fixMparConstraint= self.fixedMparFunctions[ipar]
+        self.constraints.removeMparConstraint( fixMparConstraint )
+        del self.fixedMparFunctions[ipar]
+        if lpr:
+            print "Released measured parameter", self.uparnames[ipar]
+        return
+    def releaseMparByName( self, name, lpr=True ):
+        ipar= self.mparnames.index( name )
+        self.releaseMpar( ipar, lpr )
+        return
+
+
+
+    def setUpar( self, ipar, val ):
+        self.uparv[ipar]= val
+        print "Set unmeasured parameter", self.uparnames[ipar], "to", val
+        return
+    def setMpar( self, ipar, val ):
+        self.mparv[ipar]= val
+        print "Set measured parameter", self.mparnames[ipar], "to", val
+        return
+
+    def profileUpar( self, ipar, nstep=5, stepsize=1.0 ):
+        value= self.getUpar()[ipar]
+        error= self.getUparErrors()[ipar]
+        steps= []
+        for i in range( nstep ):
+            steps.append( (i-nstep/2)*error*stepsize + value )
+        results= []
+        for step in steps:
+            self.fixUpar( ipar, step, lpr=False )
+            self.solve()
+            results.append( self.getChisq() )
+            self.releaseUpar( ipar, lpr=False )
+        self.solve()
+        return steps, results
+    def profileMpar( self, ipar, nstep=5, stepsize=1.0 ):
+        value= self.getMpar()[ipar]
+        error= self.getMparErrors()[ipar]
+        steps= []
+        for i in range( nstep ):
+            steps.append( (i-nstep/2)*error*stepsize + value )
+        results= []
+        for step in steps:
+            self.fixMpar( ipar, step, lpr=False )
+            self.solve()
+            results.append( self.getChisq() )
+            self.releaseMpar( ipar, lpr=False )
+        self.solve()
+        return steps, results
+
+    def minosUpar( self, ipar ):
+        result= self.getUpar()[ipar]
+        steps, chisqds= self.profileUpar( ipar, 21, 0.125 )
+        return self.__minos( result, steps, chisqds )
+    def minosMpar( self, ipar ):
+        result= self.getMpar()[ipar]
+        steps, chisqds= self.profileMpar( ipar, 21, 0.125 )
+        return self.__minos( result, steps, chisqds )
+    def __minos( self, result, steps, chisqds ):
+        chisqds= [ chisq-min(chisqds) for chisq in chisqds ]
+        chisqdslo= chisqds[:11]
+        stepslo= steps[:11]
+        chisqdslo.reverse()
+        stepslo.reverse()
+        chisqdshi= chisqds[10:]
+        stepshi= steps[10:]
+        from scipy.interpolate import interp1d
+        spllo= interp1d( chisqdslo, stepslo, kind="cubic" )
+        splhi= interp1d( chisqdshi, stepshi, kind="cubic" )
+        return splhi( 1.0 )-result, spllo( 1.0 )-result
+ 
+
+class funcobj:
+    def __init__( self, ipar, val ):
+        self.__ipar= ipar
+        self.__val= val
+        return
+    def __call__( self, par ):
+        return [ par[self.__ipar] - self.__val ]
+
 
 class Constraints:
 
     def __init__( self, Fun, args=(), epsilon=1.0e-4 ):
         self.ConstrFun= Fun
         self.args= args
-        self.precision= epsilon 
+        self.precision= epsilon
+        self.uparConstraints= []
+        self.mparConstraints= []
         return
+
+    def addUparConstraint( self, constraintFun ):
+        self.uparConstraints.append( constraintFun )
+    def addMparConstraint( self, constraintFun ):
+        self.mparConstraints.append( constraintFun )
+    def removeUparConstraint( self, constraintFun ):
+        self.uparConstraints.remove( constraintFun )
+    def removeMparConstraint( self, constraintFun ):
+        self.mparConstraints.remove( constraintFun )
 
     def calculate( self, mpar, upar ):
         constraints= self.ConstrFun( mpar, upar, *self.args )
+
+        for uparConstraint in self.uparConstraints:
+            constraints+= uparConstraint( upar )
+        for mparConstraint in self.mparConstraints:
+            constraints+= mparConstraint( mpar )
+
         constraintsvector= columnMatrixFromList( constraints )
         return constraintsvector
 
