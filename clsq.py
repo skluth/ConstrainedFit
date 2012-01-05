@@ -364,154 +364,243 @@ class clsqSolver:
         errorMatrix[datadim+upardim:,datadim+upardim:]= -c33
         return c11, c21, c31, c32, c33, errorMatrix
 
-    def fixUpar( self, ipar, val=None, lpr=True ):
+    def fixUpar( self, parspec, val=None, lpr=True ):
+        ipar= self.__parameterIndex( parspec, self.uparnames )
         if val == None:
             val= self.uparv.ravel().tolist()[0][ipar]
-        fixUparConstraint= funcobj( ipar, val )
+        fixUparConstraint= funcobj( ipar, val, "u" )
         self.fixedUparFunctions[ipar]= fixUparConstraint
-        self.constraints.addUparConstraint( fixUparConstraint )
+        self.constraints.addConstraint( fixUparConstraint )
         if lpr:
             print "Fixed unmeasured parameter", self.uparnames[ipar], "to", val
         return
-    def fixUparByName( self, name, val=None, lpr=True ):
-        ipar= self.uparnames.index( name )
-        self.fixUpar( ipar, val, lpr )
-        return
-    def releaseUpar( self, ipar, lpr=True ):
+    def releaseUpar( self, parspec, lpr=True ):
+        ipar= self.__parameterIndex( parspec, self.uparnames )
         fixUparConstraint= self.fixedUparFunctions[ipar]
-        self.constraints.removeUparConstraint( fixUparConstraint )
+        self.constraints.removeConstraint( fixUparConstraint )
         del self.fixedUparFunctions[ipar]
         if lpr:
             print "Released unmeasured parameter", self.uparnames[ipar]
         return
-    def releaseUparByName( self, name, lpr=True ):
-        ipar= self.uparnames.index( name )
-        self.releaseUpar( ipar, lpr )
-        return
 
-    def fixMpar( self, ipar, val=None, lpr=True ):
+    def __parameterIndex( self, parspec, parnames ):
+        if isinstance( parspec, int ):
+            ipar= parspec
+        elif isinstance( parspec, str ):
+            ipar= parnames.index( parspec )
+        else:
+            raise TypeError( "parspec neither int nor str" )
+        return ipar
+
+    def fixMpar( self, parspec, val=None, lpr=True ):
+        ipar= self.__parameterIndex( parspec, self.mparnames )
         if val == None:
             val= self.mparv.ravel().tolist()[0][ipar]
-        fixMparConstraint= funcobj( ipar, val )
+        fixMparConstraint= funcobj( ipar, val, "m" )
         self.fixedMparFunctions[ipar]= fixMparConstraint
-        self.constraints.addMparConstraint( fixMparConstraint )
+        self.constraints.addConstraint( fixMparConstraint )
         if lpr:
             print "Fixed measured parameter", self.uparnames[ipar], "to", val
         return
-    def fixMparByName( self, name, val=None, lpr=True ):
-        ipar= self.mparnames.index( name )
-        self.fixMpar( ipar, val, lpr )
-        return
-    def releaseMpar( self, ipar, lpr=True ):
+    def releaseMpar( self, parspec, lpr=True ):
+        ipar= self.__parameterIndex( parspec, self.mparnames )
         fixMparConstraint= self.fixedMparFunctions[ipar]
-        self.constraints.removeMparConstraint( fixMparConstraint )
+        self.constraints.removeConstraint( fixMparConstraint )
         del self.fixedMparFunctions[ipar]
         if lpr:
             print "Released measured parameter", self.uparnames[ipar]
         return
-    def releaseMparByName( self, name, lpr=True ):
-        ipar= self.mparnames.index( name )
-        self.releaseMpar( ipar, lpr )
-        return
 
-
-
-    def setUpar( self, ipar, val ):
+    def setUpar( self, parspec, val ):
+        ipar= self.__parameterIndex( parspec, self.uparnames )
         self.uparv[ipar]= val
         print "Set unmeasured parameter", self.uparnames[ipar], "to", val
         return
-    def setMpar( self, ipar, val ):
+    def setMpar( self, parspec, val ):
+        ipar= self.__parameterIndex( parspec, self.mparnames )
         self.mparv[ipar]= val
         print "Set measured parameter", self.mparnames[ipar], "to", val
         return
 
-    def profileUpar( self, ipar, nstep=5, stepsize=1.0 ):
-        value= self.getUpar()[ipar]
-        error= self.getUparErrors()[ipar]
-        steps= []
-        for i in range( nstep ):
-            steps.append( (i-nstep/2)*error*stepsize + value )
-        results= []
-        for step in steps:
-            self.fixUpar( ipar, step, lpr=False )
-            self.solve()
-            results.append( self.getChisq() )
-            self.releaseUpar( ipar, lpr=False )
-        self.solve()
+    def profileUpar( self, parspec, nstep=5, stepsize=1.0 ):
+        ipar= self.__parameterIndex( parspec, self.uparnames )
+        steps, results= self.__profile( ipar, nstep, stepsize,
+                                        self.getUpar, self.getUparErrors, 
+                                        self.fixUpar, self.releaseUpar )
         return steps, results
-    def profileMpar( self, ipar, nstep=5, stepsize=1.0 ):
-        value= self.getMpar()[ipar]
-        error= self.getMparErrors()[ipar]
+    def profileMpar( self, parspec, nstep=5, stepsize=1.0 ):
+        ipar= self.__parameterIndex( parspec, self.mparnames )
+        steps, results= self.__profile( ipar, nstep, stepsize,
+                                        self.getMpar, self.getMparErrors, 
+                                        self.fixMpar, self.releaseMpar )
+        return steps, results
+    def __profile( self, ipar, nstep, stepsize,
+                   getPar, getParErrors, fixPar, releasePar ):
+        value= getPar()[ipar]
+        error= getParErrors()[ipar]
         steps= []
         for i in range( nstep ):
             steps.append( (i-nstep/2)*error*stepsize + value )
         results= []
         for step in steps:
-            self.fixMpar( ipar, step, lpr=False )
+            fixPar( ipar, step, lpr=False )
             self.solve()
             results.append( self.getChisq() )
-            self.releaseMpar( ipar, lpr=False )
+            releasePar( ipar, lpr=False )
         self.solve()
         return steps, results
 
-    def minosUpar( self, ipar ):
+    def minosUpar( self, parspec, nstep=21, stepsize=0.125, 
+                   chisqmin=None, delta=1.0 ):
+        ipar= self.__parameterIndex( parspec, self.uparnames )
         result= self.getUpar()[ipar]
-        steps, chisqds= self.profileUpar( ipar, 21, 0.125 )
-        return self.__minos( result, steps, chisqds )
-    def minosMpar( self, ipar ):
+        steps, chisqds= self.profileUpar( ipar, nstep, stepsize )
+        return self.__minos( result, steps, chisqds, nstep, chisqmin, delta )
+    def minosMpar( self, parspec, nstep=21, stepsize=0.125, 
+                   chisqmin=None, delta=1.0 ):
+        ipar= self.__parameterIndex( parspec, self.mparnames )
         result= self.getMpar()[ipar]
-        steps, chisqds= self.profileMpar( ipar, 21, 0.125 )
-        return self.__minos( result, steps, chisqds )
-    def __minos( self, result, steps, chisqds ):
-        chisqds= [ chisq-min(chisqds) for chisq in chisqds ]
-        chisqdslo= chisqds[:11]
-        stepslo= steps[:11]
+        steps, chisqds= self.profileMpar( ipar, nstep, stepsize )
+        return self.__minos( result, steps, chisqds, nstep, chisqmin, delta )
+    def __minos( self, result, steps, chisqds, nstep, chisqmin, delta ):
+        if chisqmin == None:
+            chisqmin= min(chisqds)
+        chisqds= [ chisq-chisqmin for chisq in chisqds ]
+        nstephalf= nstep/2
+        chisqdslo= chisqds[:nstephalf+1]
+        stepslo= steps[:nstephalf+1]
         chisqdslo.reverse()
         stepslo.reverse()
-        chisqdshi= chisqds[10:]
-        stepshi= steps[10:]
+        chisqdshi= chisqds[nstephalf:]
+        stepshi= steps[nstephalf:]
         from scipy.interpolate import interp1d
         spllo= interp1d( chisqdslo, stepslo, kind="cubic" )
         splhi= interp1d( chisqdshi, stepshi, kind="cubic" )
-        return splhi( 1.0 )-result, spllo( 1.0 )-result
- 
+        return splhi( delta )-result, spllo( delta )-result
+
+
+    def contour( self, ipar, iopt, jpar, jopt,
+                 delta=1.0, nstep=20, stepsize=0.1 ):
+        self.solve()
+        chisqmin= self.getChisq()
+        if iopt == "u":
+            value= self.getUpar()[ipar]
+            error= self.getUparErrors()[ipar]
+            fixPar= self.fixUpar
+            releasePar= self.releaseUpar
+        elif iopt == "m":
+            value= self.getMpar()[ipar]
+            error= self.getMparErrors()[ipar]
+            fixPar= self.fixMpar
+            releasePar= self.releaseMpar
+        if jopt == "u":
+            minos= self.minosUpar
+            getPar= self.getUpar
+        elif jopt == "m":
+            minos= self.minosMpar
+            getPar= self.getMpar
+        steps= []
+        for i in range( nstep ):
+            steps.append( (i-nstep/2+0.5)*error*stepsize*sqrt(delta) + value )
+        contourx= []
+        contoury= []
+        for step in steps:
+            fixPar( ipar, step, lpr=False )
+            self.solve()
+            result= getPar()[jpar]
+            try:
+                errhi, errlo= minos( jpar, 11, 0.25*sqrt(delta), 
+                                     chisqmin, delta )
+                contourx.append( step )
+                contoury.append( errhi+result )
+                contourx.append( step )
+                contoury.append( errlo+result )
+            except ValueError:
+                print step, jpar
+            releasePar( ipar, lpr=False )
+        return contourx, contoury
+
+    def profile2d( self, ipar, iopt, jpar, jopt, nstep=11, stepsize=0.5 ):
+        values= []
+        errors= []
+        if iopt == "u":
+            values.append( self.getUpar()[ipar] )
+            errors.append( self.getUparErrors()[ipar] )
+            fixIpar= self.fixUpar
+            releaseIpar= self.releaseUpar
+        elif iopt == "m":
+            values.append( self.getMpar()[ipar] )
+            errors.append( self.getMparErrors()[ipar] )
+            fixIpar= self.fixMpar
+            releaseIpar= self.releaseMpar
+        if jopt == "u":
+            values.append( self.getUpar()[jpar] )
+            errors.append( self.getUparErrors()[jpar] )
+            fixJpar= self.fixUpar
+            releaseJpar= self.releaseUpar
+        elif jopt == "m":
+            values.append( self.getMpar()[jpar] )
+            errors.append( self.getMparErrors()[jpar] )
+            fixJpar= self.fixMpar
+            releaseJpar= self.releaseMpar
+        steplists= []
+        for value, error in zip( values, errors ):
+            steps= []
+            for i in range( nstep ):
+                steps.append( (i-nstep/2)*error*stepsize + value )
+            steplists.append( steps )
+        resultlists= []
+        for istep in steplists[0]:
+            fixIpar( ipar, istep, lpr=False )
+            results= []
+            for jstep in steplists[1]:
+                fixJpar( jpar, jstep, lpr=False )
+                self.solve()
+                results.append( self.getChisq() )
+                releaseJpar( jpar, lpr=False )
+            releaseIpar( ipar, lpr=False )
+            resultlists.append( results )
+        self.solve()
+        return steplists, resultlists
+
 
 class funcobj:
-    def __init__( self, ipar, val ):
+    def __init__( self, ipar, val, opt="u" ):
         self.__ipar= ipar
         self.__val= val
+        def uparConstraint( mpar, upar ):
+            return upar[self.__ipar] - self.__val
+        def mparConstraint( mpar, upar ):
+            return mpar[self.__ipar] - self.__val
+        if opt == "u":
+            self.__constraint= uparConstraint
+        elif opt == "m":
+            self.__constraint= mparConstraint
+        else:
+            raise NameError( "Option is neither u nor m" )
         return
-    def __call__( self, par ):
-        return [ par[self.__ipar] - self.__val ]
+    def __call__( self, mpar, upar ):
+        return [ self.__constraint( mpar, upar ) ]
 
 
 class Constraints:
 
     def __init__( self, Fun, args=(), epsilon=1.0e-4 ):
-        self.ConstrFun= Fun
-        self.args= args
-        self.precision= epsilon
-        self.uparConstraints= []
-        self.mparConstraints= []
+        self.__ConstrFun= Fun
+        self.__args= args
+        self.__precision= epsilon
+        self.__Constraints= []
         return
 
-    def addUparConstraint( self, constraintFun ):
-        self.uparConstraints.append( constraintFun )
-    def addMparConstraint( self, constraintFun ):
-        self.mparConstraints.append( constraintFun )
-    def removeUparConstraint( self, constraintFun ):
-        self.uparConstraints.remove( constraintFun )
-    def removeMparConstraint( self, constraintFun ):
-        self.mparConstraints.remove( constraintFun )
+    def addConstraint( self, constraintFun ):
+        self.__Constraints.append( constraintFun )
+    def removeConstraint( self, constraintFun ):
+        self.__Constraints.remove( constraintFun )
 
     def calculate( self, mpar, upar ):
-        constraints= self.ConstrFun( mpar, upar, *self.args )
-
-        for uparConstraint in self.uparConstraints:
-            constraints+= uparConstraint( upar )
-        for mparConstraint in self.mparConstraints:
-            constraints+= mparConstraint( mpar )
-
+        constraints= self.__ConstrFun( mpar, upar, *self.__args )
+        for constraint in self.__Constraints:
+            constraints+= constraint( mpar, upar )
         constraintsvector= columnMatrixFromList( constraints )
         return constraintsvector
 
@@ -528,7 +617,7 @@ class Constraints:
         varpardim= len(varpar)
         h= matrix( zeros( shape=(varpardim,1) ) )
         for ipar in range( varpardim ):
-            h[ipar]= setH( self.precision, varpar[ipar] )
+            h[ipar]= setH( self.__precision, varpar[ipar] )
             column= fivePointStencil( function, varpar, h, fixpar )
             columns.append( column )
             h[ipar]= 0.0
