@@ -1,5 +1,6 @@
 
 from numpy import matrix, zeros, set_printoptions, linalg, delete
+from scipy.optimize import brentq
 from math import sqrt
 from ROOT import TMath
 
@@ -255,7 +256,7 @@ class clsqSolver:
         datadim= self.datav.shape[0]
         errors= []
         for i in range( datadim ):
-            errors.append( sqrt( self.pminv[i,i] ) )
+            errors.append( sqrt( abs(self.pminv[i,i]) ) )
         return errors
     def getUparErrorMatrix( self ):
         if self.pminv == None:
@@ -400,7 +401,7 @@ class clsqSolver:
         self.fixedMparFunctions[ipar]= fixMparConstraint
         self.constraints.addConstraint( fixMparConstraint )
         if lpr:
-            print "Fixed measured parameter", self.uparnames[ipar], "to", val
+            print "Fixed measured parameter", self.mparnames[ipar], "to", val
         return
     def releaseMpar( self, parspec, lpr=True ):
         ipar= self.__parameterIndex( parspec, self.mparnames )
@@ -408,7 +409,7 @@ class clsqSolver:
         self.constraints.removeConstraint( fixMparConstraint )
         del self.fixedMparFunctions[ipar]
         if lpr:
-            print "Released measured parameter", self.uparnames[ipar]
+            print "Released measured parameter", self.mparnames[ipar]
         return
 
     def setUpar( self, parspec, val ):
@@ -450,53 +451,59 @@ class clsqSolver:
         self.solve()
         return steps, results
 
-    def minosUpar( self, parspec, nstep=21, stepsize=0.125, 
-                   chisqmin=None, delta=1.0 ):
+    def minosUpar( self, parspec, chisqmin=None, delta=1.0 ):
         ipar= self.__parameterIndex( parspec, self.uparnames )
-        result= self.getUpar()[ipar]
-        steps, chisqds= self.profileUpar( ipar, nstep, stepsize )
-        return self.__minos( result, steps, chisqds, nstep, chisqmin, delta )
-    def minosMpar( self, parspec, nstep=21, stepsize=0.125, 
-                   chisqmin=None, delta=1.0 ):
+        return self.__minos( ipar, chisqmin, delta,
+                              self.getUpar, self.getUparErrors, 
+                              self.fixUpar, self.releaseUpar )
+    def minosMpar( self, parspec, chisqmin=None, delta=1.0 ):
         ipar= self.__parameterIndex( parspec, self.mparnames )
-        result= self.getMpar()[ipar]
-        steps, chisqds= self.profileMpar( ipar, nstep, stepsize )
-        return self.__minos( result, steps, chisqds, nstep, chisqmin, delta )
-    def __minos( self, result, steps, chisqds, nstep, chisqmin, delta ):
+        return self.__minos( ipar, chisqmin, delta,
+                              self.getMpar, self.getMparErrors, 
+                              self.fixMpar, self.releaseMpar )
+    def __minos( self, ipar, chisqmin, delta,
+                 getPar, getParErrors, fixPar, releasePar ):
         if chisqmin == None:
-            chisqmin= min(chisqds)
-        chisqds= [ chisq-chisqmin for chisq in chisqds ]
-        nstephalf= nstep/2
-        chisqdslo= chisqds[:nstephalf+1]
-        stepslo= steps[:nstephalf+1]
-        chisqdslo.reverse()
-        stepslo.reverse()
-        chisqdshi= chisqds[nstephalf:]
-        stepshi= steps[nstephalf:]
-        from scipy.interpolate import interp1d
-        spllo= interp1d( chisqdslo, stepslo, kind="cubic" )
-        splhi= interp1d( chisqdshi, stepshi, kind="cubic" )
-        return splhi( delta )-result, spllo( delta )-result
+            chisqmin= self.getChisq()
+        result= getPar()[ipar]
+        error= getParErrors()[ipar]
+        def fun( x ):
+            fixPar( ipar, x, lpr=False )
+            self.solve()
+            deltachisq= self.getChisq() - chisqmin
+            releasePar( ipar, lpr=False )
+            return deltachisq - delta
+        a= result
+        b= result + (sqrt(delta)+1.0)*error
+        errhi= brentq( fun, a, b, xtol=1.0e-6, rtol=1.0e-6 )
+        a= result - (sqrt(delta)+1.0)*error
+        b= result
+        errlo= brentq( fun, a, b, xtol=1.0e-6, rtol=1.0e-6 )
+        self.solve()
+        return errhi-result, errlo-result
 
-
-    def contour( self, ipar, iopt, jpar, jopt,
+    def contour( self, iparspec, iopt, jparspec, jopt,
                  delta=1.0, nstep=20, stepsize=0.1 ):
         self.solve()
         chisqmin= self.getChisq()
         if iopt == "u":
+            ipar= self.__parameterIndex( iparspec, self.uparnames )
             value= self.getUpar()[ipar]
             error= self.getUparErrors()[ipar]
             fixPar= self.fixUpar
             releasePar= self.releaseUpar
         elif iopt == "m":
+            ipar= self.__parameterIndex( iparspec, self.mparnames )
             value= self.getMpar()[ipar]
             error= self.getMparErrors()[ipar]
             fixPar= self.fixMpar
             releasePar= self.releaseMpar
         if jopt == "u":
+            jpar= self.__parameterIndex( jparspec, self.uparnames )
             minos= self.minosUpar
             getPar= self.getUpar
         elif jopt == "m":
+            jpar= self.__parameterIndex( jparspec, self.mparnames )
             minos= self.minosMpar
             getPar= self.getMpar
         steps= []
@@ -509,14 +516,13 @@ class clsqSolver:
             self.solve()
             result= getPar()[jpar]
             try:
-                errhi, errlo= minos( jpar, 11, 0.25*sqrt(delta), 
-                                     chisqmin, delta )
+                errhi, errlo= minos( jpar, chisqmin, delta )
                 contourx.append( step )
                 contoury.append( errhi+result )
                 contourx.append( step )
                 contoury.append( errlo+result )
             except ValueError:
-                print step, jpar
+                print "contour: minos problem:", ipar, step, jpar
             releasePar( ipar, lpr=False )
         return contourx, contoury
 
