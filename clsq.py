@@ -237,6 +237,8 @@ class clsqSolver:
         lconstr= constrv.ravel().tolist()[0]
         return lconstr
 
+    def getUparv( self ):
+        return self.uparv
     def getUpar( self ):
         return self.uparv.ravel().tolist()[0]
     def getMpar( self ):
