@@ -25,7 +25,7 @@ class clhoodSolver( clsqSolver ):
     def prepareRhsv( self, dim, datadim, upardim, constrv ):
         rhsv= clsqSolver.prepareRhsv( self, dim, datadim, upardim, constrv )
         dldp= self.__lhood.firstDerivatives( self.mparv )
-        rhsv[:datadim]= - 0.5 * dldp
+        rhsv[:datadim]= - dldp
         return rhsv
 
     def prepareDeltapar( self, datadim, upardim, constrdim,
@@ -33,9 +33,9 @@ class clhoodSolver( clsqSolver ):
         deltapar= clsqSolver.prepareDeltapar( self, datadim, upardim, constrdim,
                                               c11, c21, c31, c32, c33, constrv )
         dldp= self.__lhood.firstDerivatives( self.mparv )
-        deltapar[:datadim]-= 0.5 * c11*dldp
-        deltapar[datadim:datadim+upardim]-= 0.5 * c21*dldp
-        deltapar[datadim+upardim:]-= 0.5 * c31*dldp
+        deltapar[:datadim]-= c11*dldp
+        deltapar[datadim:datadim+upardim]-= c21*dldp
+        deltapar[datadim+upardim:]-= c31*dldp
         return deltapar
 
     def getCovm( self ):
@@ -48,11 +48,6 @@ class clhoodSolver( clsqSolver ):
         dl2dp2= self.__lhood.secondDerivatives( self.mparv )
         self.invm= dl2dp2
         return self.invm
-
-    def calcChisq( self, dcdmpm, c33 ):
-        deltay= self.datav - self.mparv
-        chisq= deltay.getT()*self.invm*deltay
-        return chisq
 
     def printTitle( self ):
         print  "\nConstrained maximum likelihood"
