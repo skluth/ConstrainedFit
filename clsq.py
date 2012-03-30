@@ -32,7 +32,8 @@ class clsqSolver:
     def __init__( self, data, covm, upar, 
                   constraintfunction, args=(), epsilon=0.0001,
                   maxiter= 100, deltachisq=0.0001,
-                  mparnames=None, uparnames=None ):
+                  mparnames=None, uparnames=None,
+                  ndof=None ):
         self.constraints= Constraints( constraintfunction, args, epsilon )
         self.datav= columnMatrixFromList( data )
         self.mparv= self.datav.copy()
@@ -46,7 +47,10 @@ class clsqSolver:
         self.mparnames= self.__setParNames( mparnames, len(self.mparv) )
         self.maxiterations= maxiter
         self.deltachisq= deltachisq
-        self.constrdim= None
+        if ndof == None:
+            self.ndof= len(self.datav) - len(self.uparv)
+        else:
+            self.ndof= ndof
         self.fixedUparFunctions= {}
         self.fixedMparFunctions= {}
         return
@@ -68,7 +72,7 @@ class clsqSolver:
         upardim= self.uparv.shape[0]
         constrv= self.constraints.calculate( self.mparv, self.uparv )
         cnstrdim= constrv.shape[0]
-        self.constrdim= cnstrdim
+        # self.constrdim= cnstrdim
         dim= datadim + upardim + cnstrdim
         startpar= matrix( zeros(shape=(dim,1)) )
         self.chisq= 0.0
@@ -158,7 +162,9 @@ class clsqSolver:
         return self.chisq.ravel().tolist()[0][0]
 
     def getNdof( self ):
-        return len(self.datav) + self.constrdim - len(self.uparv)
+        # return len(self.datav) + self.constrdim - len(self.uparv)
+        # return len(self.datav) - len(self.uparv)
+        return self.ndof
 
     def __printPars( self, par, parerrs, parnames, fixedParFunctions,
                      ffmt=".4f", pulls=None ):
