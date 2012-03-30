@@ -1,4 +1,8 @@
 
+# Constrained least squares fit implementing CERN 60-30, and
+# additions from Blobel
+# S. Kluth 12/2011
+
 from numpy import matrix, zeros, set_printoptions, linalg, delete
 from scipy.optimize import brentq
 from math import sqrt
@@ -306,6 +310,8 @@ class clsqSolver:
             self.invm= self.covm.getI()
         return self.invm
 
+    # Calculate pulls for measured parameters a la Blobel
+    # from errors on Deltax = "measured parameter - data"
     def getMparPulls( self ):
         covm= self.getCovm()
         mpar= self.mparv.ravel().tolist()[0]
