@@ -316,6 +316,9 @@ class clsqSolver:
             self.invm= self.covm.getI()
         return self.invm
 
+    def getData( self ):
+        return self.datav
+
     # Calculate pulls for measured parameters a la Blobel
     # from errors on Deltax = "measured parameter - data"
     def getMparPulls( self ):
