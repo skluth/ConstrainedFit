@@ -159,11 +159,10 @@ class clsqSolver:
         return chisq
 
     def getChisq( self ):
-        return self.chisq.ravel().tolist()[0][0]
+        # return self.chisq.ravel().tolist()[0][0]
+        return float( self.chisq[0,0] )
 
     def getNdof( self ):
-        # return len(self.datav) + self.constrdim - len(self.uparv)
-        # return len(self.datav) - len(self.uparv)
         return self.ndof
 
     def __printPars( self, par, parerrs, parnames, fixedParFunctions,
@@ -217,11 +216,15 @@ class clsqSolver:
         set_printoptions( linewidth=132, precision=4 )
         if len(upar) > 1:
             if cov:
-                print "Covariance matrix:"
-                print self.getUparErrorMatrix()
+                print "\nCovariance matrix:"
+                # print self.getUparErrorMatrix()
+                self.__printMatrix( self.getUparErrorMatrix(), ".3e", 
+                                    self.uparnames )
             if corr:
-                print "Correlation matrix:"
-                print self.getUparCorrMatrix()
+                print "\nCorrelation matrix:"
+                # print self.getUparCorrMatrix()
+                self.__printMatrix( self.getUparCorrMatrix(), ".3f",
+                                    self.uparnames )
         print "\nMeasured parameters:"
         print "           Name       Value          Error       Pull"
         mpar= self.getMpar()
@@ -231,28 +234,48 @@ class clsqSolver:
                           pulls=self.getMparPulls() )
         if len(mpar) > 1:
             if cov:
-                print "Covariance matrix:"
-                print self.getMparErrorMatrix()
+                print "\nCovariance matrix:"
+                self.__printMatrix( self.getMparErrorMatrix(), ".3e", 
+                                    self.mparnames )
             if corr:
-                print "Correlation matrix:"
-                print self.getMparCorrMatrix()
+                print "\nCorrelation matrix:"
+                self.__printMatrix( self.getMparCorrMatrix(), ".3f", 
+                                    self.mparnames )
         if corr:
             print "\nTotal correlations unmeasured and measured parameters:"
-            print self.getCorrMatrix()
+            self.__printMatrix( self.getCorrMatrix(), ".3f", 
+                                self.uparnames+self.mparnames )
         set_printoptions()
+        return
+
+    def __printMatrix( self, m, ffmt, names ):
+        mshape= m.shape
+        print "{0:10s}".format( "" ),
+        for i in range(mshape[0]):
+            print "{0:>10s}".format( names[i] ),
+        print
+        for i in range(mshape[0]):
+            print "{0:>10s}".format( names[i] ),
+            for j in range(mshape[1]):
+                fmtstr= "{0:10"+ffmt+"}"
+                print fmtstr.format( m[i,j] ),
+            print
         return
 
     def getConstraints( self ):
         constrv= self.constraints.calculate( self.mparv, self.uparv )
-        lconstr= constrv.ravel().tolist()[0]
+        # lconstr= constrv.ravel().tolist()[0]
+        lconstr= [ value for value in constrv.flat ]
         return lconstr
 
     def getUparv( self ):
         return self.uparv
     def getUpar( self ):
-        return self.uparv.ravel().tolist()[0]
+        # return self.uparv.ravel().tolist()[0]
+        return [ upar for upar in self.uparv.flat ]
     def getMpar( self ):
-        return self.mparv.ravel().tolist()[0]
+        # return self.mparv.ravel().tolist()[0]
+        return [ mpar for mpar in self.mparv.flat ]
     def getUparErrors( self ):
         if self.pminv == None:
             self.pminv= self.pm.getI()
@@ -323,8 +346,10 @@ class clsqSolver:
     # from errors on Deltax = "measured parameter - data"
     def getMparPulls( self ):
         covm= self.getCovm()
-        mpar= self.mparv.ravel().tolist()[0]
-        data= self.datav.ravel().tolist()[0]
+        # mpar= self.mparv.ravel().tolist()[0]
+        # data= self.datav.ravel().tolist()[0]
+        mpar= [ par for par in self.mparv.flat ]
+        data= [ datum for datum in self.datav.flat ]
         errors= self.getMparErrors()
         for i in range( len(errors) ):
             errors[i]= sqrt( covm[i,i] - errors[i]**2 )
@@ -385,7 +410,8 @@ class clsqSolver:
     def fixUpar( self, parspec, val=None, lpr=True ):
         ipar= self.__parameterIndex( parspec, self.uparnames )
         if val == None:
-            val= self.uparv.ravel().tolist()[0][ipar]
+            # val= self.uparv.ravel().tolist()[0][ipar]
+            val= [ upar for upar in self.uparv.flat ][ipar]
         fixUparConstraint= funcobj( ipar, val, "u" )
         self.fixedUparFunctions[ipar]= fixUparConstraint
         self.constraints.addConstraint( fixUparConstraint )
@@ -413,7 +439,8 @@ class clsqSolver:
     def fixMpar( self, parspec, val=None, lpr=True ):
         ipar= self.__parameterIndex( parspec, self.mparnames )
         if val == None:
-            val= self.mparv.ravel().tolist()[0][ipar]
+            # val= self.mparv.ravel().tolist()[0][ipar]
+            val= [ mpar for mpar in self.mparv.flat ][ipar]
         fixMparConstraint= funcobj( ipar, val, "m" )
         self.fixedMparFunctions[ipar]= fixMparConstraint
         self.constraints.addConstraint( fixMparConstraint )
