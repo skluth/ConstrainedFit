@@ -42,7 +42,7 @@ class constraintsTest( unittest.TestCase ):
         mpar= self.__dodo.data
         upar= self.__dodo.upar
         constraints= self.__constraints.calculate( mpar, upar )
-        constraints= constraints.ravel().tolist()[0]
+        constraints= [ constraint for constraint in constraints.flat ]
         expectedConstraints= [ 0.1, 0.4, 0.5, 0.4, 0.5 ]
         for constraint, expectedConstraint in zip( constraints, 
                                                    expectedConstraints ):
@@ -52,7 +52,7 @@ class constraintsTest( unittest.TestCase ):
     def test_derivativeM( self ):
         dfdmpm= self.__constraints.derivativeM( self.__dodo.mparv,
                                                 self.__dodo.uparv )
-        dfdmplist= dfdmpm.ravel().tolist()[0]
+        dfdmplist= [ dfdmp for dfdmp in dfdmpm.flat ]
         expecteddfdmplist= [ -1.,  0.,  0.,  0.,  0.,
                               0., -1.,  0.,  0.,  0.,
                               0.,  0., -1.,  0.,  0.,
@@ -65,7 +65,7 @@ class constraintsTest( unittest.TestCase ):
     def test_derivativeU( self ):
         dfdupm= self.__constraints.derivativeU( self.__dodo.mparv, 
                                                 self.__dodo.uparv )
-        dfduplist= dfdupm.ravel().tolist()[0]
+        dfduplist= [ dfdup for dfdup in  dfdupm.flat ]
         expecteddfduplist= [ 1., 1.,
                              1., 2.,
                              1., 3.,
