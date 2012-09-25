@@ -72,7 +72,6 @@ class clsqSolver:
         upardim= self.uparv.shape[0]
         constrv= self.constraints.calculate( self.mparv, self.uparv )
         cnstrdim= constrv.shape[0]
-        # self.constrdim= cnstrdim
         dim= datadim + upardim + cnstrdim
         startpar= matrix( zeros(shape=(dim,1)) )
         self.chisq= 0.0
@@ -159,7 +158,6 @@ class clsqSolver:
         return chisq
 
     def getChisq( self ):
-        # return self.chisq.ravel().tolist()[0][0]
         return float( self.chisq[0,0] )
 
     def getNdof( self ):
@@ -264,17 +262,14 @@ class clsqSolver:
 
     def getConstraints( self ):
         constrv= self.constraints.calculate( self.mparv, self.uparv )
-        # lconstr= constrv.ravel().tolist()[0]
         lconstr= [ value for value in constrv.flat ]
         return lconstr
 
     def getUparv( self ):
         return self.uparv
     def getUpar( self ):
-        # return self.uparv.ravel().tolist()[0]
         return [ upar for upar in self.uparv.flat ]
     def getMpar( self ):
-        # return self.mparv.ravel().tolist()[0]
         return [ mpar for mpar in self.mparv.flat ]
     def getUparErrors( self ):
         if self.pminv == None:
@@ -346,8 +341,6 @@ class clsqSolver:
     # from errors on Deltax = "measured parameter - data"
     def getMparPulls( self ):
         covm= self.getCovm()
-        # mpar= self.mparv.ravel().tolist()[0]
-        # data= self.datav.ravel().tolist()[0]
         mpar= [ par for par in self.mparv.flat ]
         data= [ datum for datum in self.datav.flat ]
         errors= self.getMparErrors()
@@ -410,7 +403,6 @@ class clsqSolver:
     def fixUpar( self, parspec, val=None, lpr=True ):
         ipar= self.__parameterIndex( parspec, self.uparnames )
         if val == None:
-            # val= self.uparv.ravel().tolist()[0][ipar]
             val= [ upar for upar in self.uparv.flat ][ipar]
         fixUparConstraint= funcobj( ipar, val, "u" )
         self.fixedUparFunctions[ipar]= fixUparConstraint
@@ -439,7 +431,6 @@ class clsqSolver:
     def fixMpar( self, parspec, val=None, lpr=True ):
         ipar= self.__parameterIndex( parspec, self.mparnames )
         if val == None:
-            # val= self.mparv.ravel().tolist()[0][ipar]
             val= [ mpar for mpar in self.mparv.flat ][ipar]
         fixMparConstraint= funcobj( ipar, val, "m" )
         self.fixedMparFunctions[ipar]= fixMparConstraint
