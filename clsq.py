@@ -215,12 +215,10 @@ class clsqSolver:
         if len(upar) > 1:
             if cov:
                 print "\nCovariance matrix:"
-                # print self.getUparErrorMatrix()
                 self.__printMatrix( self.getUparErrorMatrix(), ".3e", 
                                     self.uparnames )
             if corr:
                 print "\nCorrelation matrix:"
-                # print self.getUparCorrMatrix()
                 self.__printMatrix( self.getUparCorrMatrix(), ".3f",
                                     self.uparnames )
         print "\nMeasured parameters:"
