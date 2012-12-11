@@ -263,6 +263,10 @@ class clsqSolver:
         lconstr= [ value for value in constrv.flat ]
         return lconstr
 
+    def getPar( self ):
+        return self.getUpar()+self.getMpar()
+    def getParErrors( self ):
+        return self.getUparErrors()+self.getMparErrors()
     def getUparv( self ):
         return self.uparv
     def getUpar( self ):
