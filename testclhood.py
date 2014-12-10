@@ -6,6 +6,9 @@
 import unittest
 
 from numpy import matrix
+from scipy.stats import norm
+from math import log
+
 from clsq import columnMatrixFromList
 
 import clhood
@@ -27,12 +30,11 @@ def linearConstrFun( mpar, upar, xv ):
     return constraints
 
 def lhoodfun( mpar, data, errors ):
-    from ROOT import TMath
     result= 0.0
     for datum, parval, error in zip( data, mpar, errors ):
-        result-= TMath.Log( TMath.Gaus( datum, parval, 
-                                        error, True ) )
-        # result+= 0.5*((datum-parval)/error)**2
+        parval= parval.item()
+#        result-= log( norm.pdf( datum, parval, error ) )
+        result+= 0.5*((datum-parval)/error)**2
     return result
 
 

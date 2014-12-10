@@ -5,8 +5,8 @@
 
 from numpy import matrix, zeros, set_printoptions, linalg, delete
 from scipy.optimize import brentq
+from scipy.stats import chisqprob
 from math import sqrt
-from ROOT import TMath
 
 
 def columnMatrixFromList( listin ):
@@ -185,7 +185,7 @@ class clsqSolver:
     def printFitParameters( self, chisq, ndof, ffmt ):
         fmtstr= "\nChi^2= {0:"+ffmt+"} for {1:d} d.o.f, Chi^2/d.o.f= {2:"+ffmt+"}, P-value= {3:"+ffmt+"}"
         print fmtstr.format( chisq, ndof, chisq/float(ndof), 
-                             TMath.Prob( chisq, ndof ) )
+                             chisqprob( chisq, ndof ) )
         return
 
     def printResults( self, ffmt=".4f", cov=False, corr=False ):

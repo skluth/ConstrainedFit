@@ -69,8 +69,8 @@ class Likelihood:
         return 
 
     def value( self, mpar ):
-        value= self.__calculate( mpar )
-        return value.ravel().tolist()[0][0]
+        return self.__calculate( mpar )
+
     def __calculate( self, mpar ):
         return self.__lfun( mpar, *self.__args )
 

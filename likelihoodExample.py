@@ -1,8 +1,10 @@
 
-from ROOT import TMath
-
 from ConstrainedFit import clhood
 from ConstrainedFit import clsq
+
+from scipy.special import gammaln
+from math import log
+from scipy.stats import poisson
 
 def run( lBlobel=False ):
     
@@ -14,8 +16,11 @@ def run( lBlobel=False ):
     def lfun( mpar ):
         result= 0.0
         for datum, parval in zip( data, mpar ):
-#            result-= TMath.Log( TMath.PoissonI( datum, parval ) )
-            result-= datum*TMath.Log( parval ) - TMath.LnGamma( datum+1.0 ) - parval
+            parval= parval.item()
+            # Likelihood is Poisson for every data point
+            result-= log( poisson.pmf( datum, parval ) )
+            # Calculated log(poisson):
+            # result-= datum*log( parval ) - gammaln( datum+1.0 ) - parval
         return result
 
     def constrFun( mpar, upar ):
