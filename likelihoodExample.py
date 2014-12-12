@@ -12,7 +12,7 @@ from math import log
 # Fit with poisson likelihood:
 def run( lBlobel=False ):
     
-    # Data, two counts:
+    # Data, two counts, errors not needed:
     data= [ 9.0, 16.0 ]
     # errors= [ 3.0, 4.0 ]
 
@@ -65,7 +65,7 @@ def rung( lBlobel=False ):
             # result+= 0.5*((datum-parval)/error)**2
         return result
 
-    # Constrains force linear function for each data point:
+    # Constraints force linear function for each data point:
     def constrFun( mpar, upar ):
         constraints= []
         for xval, parval in zip( xabs, mpar ):
