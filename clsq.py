@@ -273,6 +273,10 @@ class clsqSolver:
         return [ upar for upar in self.uparv.flat ]
     def getMpar( self ):
         return [ mpar for mpar in self.mparv.flat ]
+    def getUparNames( self ):
+        return list( self.uparnames )
+    def getMparNames( self ):
+        return list( self.mparnames )
     def getUparErrors( self ):
         if self.pminv == None:
             self.pminv= self.pm.getI()
