@@ -1,8 +1,8 @@
 
 # Blobels branching ratio example
-# See Blobles lecture Terascale School on data combination and limit setting
+# See Blobels lecture Terascale School on data combination and limit setting
 # (DESY, Oct 2011)
-# Input data from from attachment to school agenda
+# Input data from attachment to school agenda brExample.txt
 # S. Kluth 2012
 
 def Branchingratios( opt="m" ):
@@ -15,6 +15,7 @@ def Branchingratios( opt="m" ):
               0.15, 0.4, 0.16, 0.40, 0.45, 0.009, 5.0, 2.5 ]
     # Error scale factor a la Blobel lecture:
     if "e" in opt:
+        print "Apply scaling *2.8 of error[13]"
         errors[13]= errors[13]*2.8
     covm= clsq.covmFromErrors( errors )
 
@@ -65,13 +66,15 @@ def Branchingratios( opt="m" ):
     solver.solve( lBlobel=lBlobel )
     lcov= False
     lcorr= False
-    if "c" in opt:
+    if "corr" in opt:
         lcov= True
         lcorr= True
     solver.printResults( cov=lcov, corr=lcorr )
 
     if "m" in opt:
         _doMinos( solver, "u" )
+    if "cont" in opt:
+        _doContour( solver, ipar1=2, type1="u", ipar2=3, type2="u" )
 
     return
 
@@ -110,7 +113,7 @@ def LinearFit():
 # Example showing a fit with poisson likelihood, see Blobels 
 # Terascale Analysis Center lecture 20 Jan 2010, pg. 33
 
-def PoissonLikelihood( lBlobel=False ):
+def PoissonLikelihood( opt="" ):
     
     from ConstrainedFit import clhood
     from ConstrainedFit import clsq
@@ -147,15 +150,24 @@ def PoissonLikelihood( lBlobel=False ):
                                  uparnames=upnames, mparnames=mpnames )
     print "Constraints before solution"
     print solver.getConstraints()
-    solver.solve( lBlobel=lBlobel, lpr=True )
-    solver.printResults( corr=True )
+    lBlobel=False
+    lPrint= False
+    lCorr= False
+    if "b" in opt:
+        lBlobel= True
+    if "p" in opt:
+        lPrint= True
+    if "c" in opt:
+        lCorr= True
+    solver.solve( lBlobel=lBlobel, lpr=lPrint )
+    solver.printResults( corr=lCorr )
 
     return
 
 # Linear fit with Gauss (normal) likelihood, and with clsq
 # for comparison, expect identical results:
 
-def GaussLikelihood( lBlobel=False ):
+def GaussLikelihood( opt="" ):
 
     from ConstrainedFit import clhood, clsq
     from scipy.stats import norm
@@ -186,13 +198,24 @@ def GaussLikelihood( lBlobel=False ):
             constraints.append( upar[0] + upar[1]*xval - parval )
         return constraints
 
+    # Configure options:
+    lBlobel=False
+    lPrint= False
+    lCorr= False
+    if "b" in opt:
+        lBlobel= True
+    if "p" in opt:
+        lPrint= True
+    if "c" in opt:
+        lCorr= True
+
     # Solution using constrained log(likelihood) minimisation:
     print "\nMax likelihood constrained fit"
     solver= clhood.clhoodSolver( data, upar, lfun, constrFun, uparnames=upnames )
     print "Constraints before solution"
     print solver.getConstraints()
-    solver.solve( lBlobel=lBlobel, lpr=True )
-    solver.printResults( corr=True )
+    solver.solve( lBlobel=lBlobel, lpr=lPrint )
+    solver.printResults( corr=lCorr )
 
     # Solution using constrained least squares:
     print "\nLeast squares constrained fit"
@@ -200,8 +223,8 @@ def GaussLikelihood( lBlobel=False ):
     solver= clsq.clsqSolver( data, covm, upar, constrFun, uparnames=upnames )
     print "Constraints before solution"
     print solver.getConstraints()
-    solver.solve( lBlobel=lBlobel )
-    solver.printResults( corr=True )
+    solver.solve( lBlobel=lBlobel, lpr=lPrint )
+    solver.printResults( corr=lCorr )
 
     return
 
@@ -209,7 +232,7 @@ def GaussLikelihood( lBlobel=False ):
 # Blobels lecture pg 29 with values estimated from the plot
 # S Kluth 12.12.2014
 
-def StraightLine( lBlobel=False ):
+def StraightLine( opt="" ):
 
     from ConstrainedFit import clsq
     from numpy import matrix, zeros
@@ -254,8 +277,20 @@ def StraightLine( lBlobel=False ):
                              uparnames=upnames )
     print "Constraints before solution"
     print solver.getConstraints()
+    lBlobel= False
+    lCorr= False
+    if "b" in opt:
+        lBlobel= True
+    if "corr" in opt:
+        lCorr= True
     solver.solve( lBlobel=lBlobel )
-    solver.printResults( corr=True )
+    solver.printResults( corr=lCorr )
+    if "m" in opt:
+        _doMinos( solver, "u" )
+    if "cont" in opt:
+        _doContour( solver, ipar1=0, type1="u", ipar2=1, type2="u" )
+
+    return
 
     # Plot:
     global tg, lell, tf, tt
@@ -305,7 +340,7 @@ def StraightLine( lBlobel=False ):
 # in triangleConstrFun the two constraints are calculated to return 0
 # S. Kluth 2012
 
-def Triangle( opt="", lBlobel=True ):
+def Triangle( opt="" ):
 
     from ConstrainedFit import clsq
     from math import sqrt, tan
@@ -332,13 +367,17 @@ def Triangle( opt="", lBlobel=True ):
                              uparnames=upnames, mparnames=mpnames )
     print "Constraints before solution"
     print solver.getConstraints()
+    lBlobel= False
+    lCorr= False
+    if "b" in opt:
+        lBlobel= True
     solver.solve( lBlobel=lBlobel )
     solver.printResults( corr=True )
 
     if "m" in opt:
         _doMinos( solver )
     if "c" in opt:
-        _doContour( solver )
+        _doContour( solver, ipar1=0, type1="u", ipar2=3, type2="m" )
 
     return
 
@@ -359,23 +398,44 @@ def _doMinos( solver, opt="um" ):
             print fmtstr.format( mpnames[ipar], results[ipar], errhi, abs(errlo) )
     return
 
-def _doContour( solver ):
+def _doContour( solver, ipar1=0, type1="u", ipar2=1, type2="m" ):
     from array import array
     from ROOT import TGraph, TMultiGraph
-    print "\nContour plot A - b:"
+    def getUMParErrName( pindx, ptype ):
+        par= None
+        err= None
+        name= None
+        if ptype == "u":
+            par= solver.getUpar()[pindx]
+            err= solver.getUparErrors()[pindx]
+            name= solver.getUparNames()[pindx]
+        elif ptype == "m":
+            par= solver.getMpar()[pindx]
+            err= solver.getMparErrors()[pindx]
+            name= solver.getMparNames()[pindx]
+        else:
+            print "getUMPar: error, ptype not recognised:", ptype
+        return par, err, name
+    par1, err1, name1= getUMParErrName( ipar1, type1 )
+    par2, err2, name2= getUMParErrName( ipar2, type2 )
+    print "\nContour plot " + name1 + " - " + name2 + ":"
     global te1, te2, te3, tg1, tg2, tg3, tmg
-    A= solver.getUpar()[0]
-    Aerr= solver.getUparErrors()[0]
-    b= solver.getMpar()[1]
-    berr= solver.getMparErrors()[1]
     corr= solver.getCorrMatrix()
-    rho= corr[1,4]
-    te1= _makeEllipse( A, b, Aerr, berr, rho )
-    te2= _makeEllipse( A, b, 2.0*Aerr, 2.0*berr, rho )
-    te3= _makeEllipse( A, b, 3.0*Aerr, 3.0*berr, rho )
-    vx1, vy1= solver.contour( 0, "u", 1, "m", delta=1.0 )
-    vx2, vy2= solver.contour( 0, "u", 1, "m", delta=4.0 )
-    vx3, vy3= solver.contour( 0, "u", 1, "m", delta=9.0 )
+    icorr1= ipar1
+    icorr2= ipar2
+    if type1 == "u" or type2 == "u":
+        nmpar= len(solver.getMpar())
+        if type1 == "u":
+            icorr1= nmpar + ipar1
+        if type2 == "u":
+            icorr2= nmpar + ipar2
+    rho= corr[icorr1,icorr2]
+    te1= _makeEllipse( par1, par2, err1, err2, rho )
+    te2= _makeEllipse( par1, par2, 2.0*err1, 2.0*err2, rho )
+    te3= _makeEllipse( par1, par2, 3.0*err1, 3.0*err2, rho )
+    vx1, vy1= solver.contour( ipar1, type1, ipar2, type2, delta=1.0 )
+    vx2, vy2= solver.contour( ipar1, type1, ipar2, type2, delta=4.0 )
+    vx3, vy3= solver.contour( ipar1, type1, ipar2, type2, delta=9.0 )
     ax1= array( "d", vx1 )
     ay1= array( "d", vy1 )
     ax2= array( "d", vx2 )
@@ -396,8 +456,8 @@ def _doContour( solver ):
     tmg.Draw( "ap" )
     xa= tmg.GetXaxis()
     ya= tmg.GetYaxis()
-    xa.SetTitle( "A" )
-    ya.SetTitle( "b" )
+    xa.SetTitle( name1 )
+    ya.SetTitle( name2 )
     te1.Draw( "s" )
     te2.Draw( "s" )
     te3.Draw( "s" )
