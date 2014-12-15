@@ -5,7 +5,7 @@
 # Input data from from attachment to school agenda
 # S. Kluth 2012
 
-def Branchingratios( opt="mc", lBlobel=False ):
+def Branchingratios( opt="m" ):
 
     from ConstrainedFit import clsq
 
@@ -59,6 +59,9 @@ def Branchingratios( opt="mc", lBlobel=False ):
                              uparnames=upnames )
     print "Constraints before solution"
     print solver.getConstraints()
+    lBlobel= False
+    if "b" in opt:
+        lBlobel= True
     solver.solve( lBlobel=lBlobel )
     lcov= False
     lcorr= False
