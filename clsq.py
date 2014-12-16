@@ -127,12 +127,13 @@ class clsqSolver:
         datadim= dcdmpm.shape[1]
         upardim= dcdupm.shape[1]
         dim= self.__pm.shape[0]
-        rhsv= self.__prepareRhsv( dim, datadim, upardim, constrv )
+        rhsv= self._prepareRhsv( dim, datadim, upardim, constrv )
         deltapar= linalg.solve( self.__pm, rhsv )
         self.__pminv= self.__pm.getI()
         c33= self.__pminv[datadim+upardim:,datadim+upardim:]
         return deltapar, c33
-    def __prepareRhsv( self, dim, datadim, upardim, constrv ):
+    # To be overriden in subclass for constrained likelihood:
+    def _prepareRhsv( self, dim, datadim, upardim, constrv ):
         rhsv= matrix( zeros(shape=(dim,1)) )
         rhsv[datadim+upardim:]= constrv
         return rhsv
@@ -150,7 +151,7 @@ class clsqSolver:
         pm[datadim+upardim:,datadim:datadim+upardim]= dcdupm
         return pm
 
-    # Solva a la Blobel and CERN 60-30
+    # Solve a la Blobel and CERN 60-30:
     def __solveByPartition( self, dcdmpm, dcdupm, constrv ):
         c11, c21, c31, c32, c33, errorMatrix= self.__makeInverseProblemMatrix( dcdmpm,
                                                                                dcdupm )
@@ -158,10 +159,11 @@ class clsqSolver:
         datadim= dcdmpm.shape[1]
         upardim= dcdupm.shape[1]
         constrdim= dcdmpm.shape[0]
-        deltapar= self.__prepareDeltapar( datadim, upardim, constrdim,
-                                          c11, c21, c31, c32, c33, constrv )
+        deltapar= self._prepareDeltapar( datadim, upardim, constrdim,
+                                         c11, c21, c31, c32, c33, constrv )
         return deltapar, c33
-    def __prepareDeltapar( self, datadim, upardim, constrdim,
+    # To be overriden in subclass for constrained likelihood:
+    def _prepareDeltapar( self, datadim, upardim, constrdim,
                          c11, c21, c31, c32, c33, constrv ):
         dim= datadim+upardim+constrdim
         deltapar= matrix( zeros(shape=(dim,1)) )
