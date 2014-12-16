@@ -8,15 +8,13 @@ from scipy.optimize import brentq
 from scipy.stats import chisqprob
 from math import sqrt
 
-
+# Helper functions to prepare inputs:
 def columnMatrixFromList( listin ):
     dim= len( listin )
     columnmatrix= matrix( zeros(shape=(dim,1)) )
     for i in range( dim ):
         columnmatrix[i]= listin[i]
     return columnmatrix
-
-
 def covmFromErrors( errors ):
     covm= []
     n= len( errors )
@@ -26,9 +24,10 @@ def covmFromErrors( errors ):
         covm.append( row )
     return covm
 
-
+# Main class to run constrained least squares fit:
 class clsqSolver:
 
+    # Ctor:
     def __init__( self, data, covm, upar, 
                   constraintfunction, args=(), epsilon=0.0001,
                   maxiter= 100, deltachisq=0.0001,
@@ -55,6 +54,7 @@ class clsqSolver:
         self.__fixedMparFunctions= {}
         return
 
+    # Set parameter names to default or from user input:
     def __setParNames( self, parnames, npar ):
         myparnames= []
         for ipar in range( npar ):
@@ -65,19 +65,18 @@ class clsqSolver:
             myparnames.append( parname )
         return myparnames
 
+    # Method to run clsq solver:
     def solve( self, lpr=False, lBlobel=False ):
-        self.lBlobel= lBlobel
+        self.__lBlobel= lBlobel
+        # If run again reset measured parameters to data values, chi^2 and iteration counter:
         self.__mparv= self.__datav.copy()
+        self.__chisq= 0.0
+        self.__niterations= 0
         datadim= self.__datav.shape[0]
         upardim= self.__uparv.shape[0]
-        constrv= self.__constraints.calculate( self.__mparv, self.__uparv )
-        cnstrdim= constrv.shape[0]
-        dim= datadim + upardim + cnstrdim
-        startpar= matrix( zeros(shape=(dim,1)) )
-        self.chisq= 0.0
         if lpr:
-            print "Chi^2 before fit:", self.chisq
-        self.__niterations= 0
+            print "Chi^2 before fit:", self.__chisq
+        # Iterate clsq calculation until convergence or maximum:
         for iiter in range( self.__maxiterations ):
             self.__niterations+= 1
             if lpr:
@@ -86,13 +85,19 @@ class clsqSolver:
                     print "Solution by partition"
                 else:
                     print "Solution by inversion"
-            # Calculate derivatives and constraints:
+            # Calculate constraint derivatives and constraints:
             dcdmpm= self.__constraints.derivativeM( self.__mparv, self.__uparv )
             dcdupm= self.__constraints.derivativeU( self.__mparv, self.__uparv )
             constrv= - self.__constraints.calculate( self.__mparv, self.__uparv )
             # Solve problem:
+            cnstrdim= constrv.shape[0]
+            dim= datadim + upardim + cnstrdim
+            startpar= matrix( zeros(shape=(dim,1)) )
             startpar[:datadim]= self.__mparv
             startpar[datadim:datadim+upardim]= self.__uparv
+            # Choose one solution algorithm, result is difference (delta)
+            # w.r.t. startparameters and submatrix c33 w.r.t. measured parameters,
+            # then update parameters:
             if not lBlobel:
                 deltapar, c33= self.__solveByInversion( dcdmpm, 
                                                         dcdupm, 
@@ -104,16 +109,18 @@ class clsqSolver:
             newpar= startpar + deltapar
             self.__mparv= newpar[:datadim]
             self.__uparv= newpar[datadim:datadim+upardim]
-            # Check if chi^2 changed:
+            # Check if chi^2 changed below threshold or maximum number of
+            # iterations reached:
             chisqnew= self.calcChisq( dcdmpm, c33 )
             if lpr:
                 print "Chi^2=", chisqnew
-            if( abs(chisqnew-self.chisq) < self.__deltachisq and
+            if( abs(chisqnew-self.__chisq) < self.__deltachisq and
                 iiter > 0 ):
                 break
-            self.chisq= chisqnew
+            self.__chisq= chisqnew
         return
 
+    # Solve directly using linalg.solve:
     def __solveByInversion( self, dcdmpm, dcdupm, constrv ):
         self.__pm= self.__makeProblemMatrix( dcdmpm, dcdupm )
         self.__pminv= None
@@ -125,12 +132,25 @@ class clsqSolver:
         self.__pminv= self.__pm.getI()
         c33= self.__pminv[datadim+upardim:,datadim+upardim:]
         return deltapar, c33
-
     def __prepareRhsv( self, dim, datadim, upardim, constrv ):
         rhsv= matrix( zeros(shape=(dim,1)) )
         rhsv[datadim+upardim:]= constrv
         return rhsv
+    def __makeProblemMatrix( self, dcdmpm, dcdupm ):
+        invm= self.getInvm()
+        datadim= invm.shape[0]
+        cnstrdim= dcdmpm.shape[0]
+        upardim= dcdupm.shape[1]
+        dim= datadim+upardim+cnstrdim
+        pm= matrix( zeros(shape=(dim,dim)) )
+        pm[:datadim,:datadim]= invm
+        pm[:datadim,datadim+upardim:]= dcdmpm.getT()
+        pm[datadim+upardim:,:datadim]= dcdmpm
+        pm[datadim:datadim+upardim,datadim+upardim:]= dcdupm.getT()
+        pm[datadim+upardim:,datadim:datadim+upardim]= dcdupm
+        return pm
 
+    # Solva a la Blobel and CERN 60-30
     def __solveByPartition( self, dcdmpm, dcdupm, constrv ):
         c11, c21, c31, c32, c33, errorMatrix= self.__makeInverseProblemMatrix( dcdmpm,
                                                                                dcdupm )
@@ -141,7 +161,6 @@ class clsqSolver:
         deltapar= self.__prepareDeltapar( datadim, upardim, constrdim,
                                           c11, c21, c31, c32, c33, constrv )
         return deltapar, c33
-
     def __prepareDeltapar( self, datadim, upardim, constrdim,
                          c11, c21, c31, c32, c33, constrv ):
         dim= datadim+upardim+constrdim
@@ -150,19 +169,52 @@ class clsqSolver:
         deltapar[datadim:datadim+upardim]= c32.getT()*constrv
         deltapar[datadim+upardim:]= c33*constrv
         return deltapar
+    def __makeInverseProblemMatrix( self, dcdmpm, dcdupm ):
+        covm= self.getCovm()
+        dcdmpmT= dcdmpm.getT()
+        dcdupmT= dcdupm.getT()
+        wbinv= dcdmpm*covm*dcdmpmT
+        wb= wbinv.getI()
+        wa= dcdupmT*wb*dcdupm
+        wainv= wa.getI()
+        btwbb= dcdmpmT*wb*dcdmpm
+        awainvat= dcdupm*wainv*dcdupmT
+        wbawainvatwbbwinv= wb*awainvat*wb*dcdmpm*covm
+        c11= ( covm - covm*btwbb*covm 
+               + covm*dcdmpmT*wbawainvatwbbwinv )
+        c21= - wainv*dcdupmT*wb*dcdmpm*covm
+        c22= wainv
+        c31= wb*dcdmpm*covm - wbawainvatwbbwinv
+        c32= wb*dcdupm*wainv
+        c33= - wb + wb*awainvat*wb
+        datadim= c11.shape[0]
+        upardim= c21.shape[0]
+        constrdim= c33.shape[0]
+        dim= datadim+upardim+constrdim
+        errorMatrix= matrix( zeros(shape=(dim,dim)) )
+        errorMatrix[:datadim,:datadim]= c11
+        errorMatrix[:datadim,datadim:datadim+upardim]= c21.getT()
+        errorMatrix[datadim:datadim+upardim,:datadim]= c21
+        errorMatrix[datadim:datadim+upardim,datadim:datadim+upardim]= c22
+        errorMatrix[datadim+upardim:,datadim+upardim:]= -c33
+        return c11, c21, c31, c32, c33, errorMatrix
 
+    # Calculate chi^2 for data vs measured parameters:
     def calcChisq( self, dcdmpm, c33 ):
         deltay= self.__datav - self.__mparv
         c= dcdmpm*deltay
         chisq= - c.getT()*c33*c
         return chisq
 
+    # Return last chi^2 calculated in solve:
     def getChisq( self ):
-        return float( self.chisq[0,0] )
+        return float( self.__chisq[0,0] )
 
+    # Return number of degrees of freedom:
     def getNdof( self ):
         return self.__ndof
 
+    # Print information on parameters:
     def __printPars( self, par, parerrs, parnames, fixedParFunctions,
                      ffmt=".4f", pulls=None ):
         for ipar in range(len(par)):
@@ -182,16 +234,18 @@ class clsqSolver:
         print "\nConstrained least squares CLSQ"
         return
 
+    # Print fit chi^2 information:
     def printFitParameters( self, chisq, ndof, ffmt ):
         fmtstr= "\nChi^2= {0:"+ffmt+"} for {1:d} d.o.f, Chi^2/d.o.f= {2:"+ffmt+"}, P-value= {3:"+ffmt+"}"
         print fmtstr.format( chisq, ndof, chisq/float(ndof), 
                              chisqprob( chisq, ndof ) )
         return
 
+    # Print fit summary:
     def printResults( self, ffmt=".4f", cov=False, corr=False ):
         self.printTitle()
         print "\nResults after fit",
-        if self.lBlobel:
+        if self.__lBlobel:
             print "using solution by partition:"
         else:
             print "using solution by inversion:"
@@ -244,6 +298,7 @@ class clsqSolver:
         set_printoptions()
         return
 
+    # Print a matrix formatted:
     def __printMatrix( self, m, ffmt, names ):
         mshape= m.shape
         print "{0:10s}".format( "" ),
@@ -257,12 +312,14 @@ class clsqSolver:
                 print fmtstr.format( m[i,j] ),
             print
         return
-
+    
+    # Get constraint values as list:
     def getConstraints( self ):
         constrv= self.__constraints.calculate( self.__mparv, self.__uparv )
         lconstr= [ value for value in constrv.flat ]
         return lconstr
 
+    # Accessors for unmeasured and measured parameters and errors after fit:
     def getPar( self ):
         return self.getUpar()+self.getMpar()
     def getParErrors( self ):
@@ -343,14 +400,18 @@ class clsqSolver:
         return self.__invm
 
     def getData( self ):
+        return [ datum for datum in self.__datav.flat ]
+    def getDatav( self ):
         return self.__datav
 
     # Calculate pulls for measured parameters a la Blobel
     # from errors on Deltax = "measured parameter - data"
     def getMparPulls( self ):
         covm= self.getCovm()
-        mpar= [ par for par in self.__mparv.flat ]
-        data= [ datum for datum in self.__datav.flat ]
+        #mpar= [ par for par in self.__mparv.flat ]
+        mpar= self.getMpar()
+        #data= [ datum for datum in self.__datav.flat ]
+        data= self.getData()
         errors= self.getMparErrors()
         for i in range( len(errors) ):
             errors[i]= sqrt( covm[i,i] - errors[i]**2 )
@@ -364,54 +425,10 @@ class clsqSolver:
             pulls.append( pull )
         return pulls
 
-    def __makeProblemMatrix( self, dcdmpm, dcdupm ):
-        invm= self.getInvm()
-        datadim= invm.shape[0]
-        cnstrdim= dcdmpm.shape[0]
-        upardim= dcdupm.shape[1]
-        dim= datadim+upardim+cnstrdim
-        pm= matrix( zeros(shape=(dim,dim)) )
-        pm[:datadim,:datadim]= invm
-        pm[:datadim,datadim+upardim:]= dcdmpm.getT()
-        pm[datadim+upardim:,:datadim]= dcdmpm
-        pm[datadim:datadim+upardim,datadim+upardim:]= dcdupm.getT()
-        pm[datadim+upardim:,datadim:datadim+upardim]= dcdupm
-        return pm
-
-    def __makeInverseProblemMatrix( self, dcdmpm, dcdupm ):
-        covm= self.getCovm()
-        dcdmpmT= dcdmpm.getT()
-        dcdupmT= dcdupm.getT()
-        wbinv= dcdmpm*covm*dcdmpmT
-        wb= wbinv.getI()
-        wa= dcdupmT*wb*dcdupm
-        wainv= wa.getI()
-        btwbb= dcdmpmT*wb*dcdmpm
-        awainvat= dcdupm*wainv*dcdupmT
-        wbawainvatwbbwinv= wb*awainvat*wb*dcdmpm*covm
-        c11= ( covm - covm*btwbb*covm 
-               + covm*dcdmpmT*wbawainvatwbbwinv )
-        c21= - wainv*dcdupmT*wb*dcdmpm*covm
-        c22= wainv
-        c31= wb*dcdmpm*covm - wbawainvatwbbwinv
-        c32= wb*dcdupm*wainv
-        c33= - wb + wb*awainvat*wb
-        datadim= c11.shape[0]
-        upardim= c21.shape[0]
-        constrdim= c33.shape[0]
-        dim= datadim+upardim+constrdim
-        errorMatrix= matrix( zeros(shape=(dim,dim)) )
-        errorMatrix[:datadim,:datadim]= c11
-        errorMatrix[:datadim,datadim:datadim+upardim]= c21.getT()
-        errorMatrix[datadim:datadim+upardim,:datadim]= c21
-        errorMatrix[datadim:datadim+upardim,datadim:datadim+upardim]= c22
-        errorMatrix[datadim+upardim:,datadim+upardim:]= -c33
-        return c11, c21, c31, c32, c33, errorMatrix
-
+    # Fix or release an unmeasured parameter:
     def fixUpar( self, parspec, val=None, lpr=True ):
         ipar= self.__parameterIndex( parspec, self.__uparnames )
         if val == None:
-            #val= [ upar for upar in self.uparv.flat ][ipar]
             val= self.__uparv[ipar].item()
         fixUparConstraint= funcobj( ipar, val, "u" )
         self.__fixedUparFunctions[ipar]= fixUparConstraint
@@ -428,19 +445,10 @@ class clsqSolver:
             print "Released unmeasured parameter", self.__uparnames[ipar]
         return
 
-    def __parameterIndex( self, parspec, parnames ):
-        if isinstance( parspec, int ):
-            ipar= parspec
-        elif isinstance( parspec, str ):
-            ipar= parnames.index( parspec )
-        else:
-            raise TypeError( "parspec neither int nor str" )
-        return ipar
-
+    # Fix or release a measured parameter:
     def fixMpar( self, parspec, val=None, lpr=True ):
         ipar= self.__parameterIndex( parspec, self.__mparnames )
         if val == None:
-            #val= [ mpar for mpar in self.mparv.flat ][ipar]
             val= self.__mparv[ipar].item()
         fixMparConstraint= funcobj( ipar, val, "m" )
         self.__fixedMparFunctions[ipar]= fixMparConstraint
@@ -457,6 +465,7 @@ class clsqSolver:
             print "Released measured parameter", self.__mparnames[ipar]
         return
 
+    # Set a value for unmeasured or measured parameter:
     def setUpar( self, parspec, val ):
         ipar= self.__parameterIndex( parspec, self.__uparnames )
         self.__uparv[ipar]= val
@@ -468,6 +477,8 @@ class clsqSolver:
         print "Set measured parameter", self.__mparnames[ipar], "to", val
         return
 
+    # Profiling of unmeasured or measured parameters by fixing given
+    # parameter and re-solving for a range of parameter values:
     def profileUpar( self, parspec, nstep=5, stepsize=1.0 ):
         ipar= self.__parameterIndex( parspec, self.__uparnames )
         steps, results= self.__profile( ipar, nstep, stepsize,
@@ -496,6 +507,10 @@ class clsqSolver:
         self.solve()
         return steps, results
 
+    # Error calculation a la Minuits Minos algorithm, find for given 
+    # parameter the values which solve Chi^2 = Chi^2_min+delta.  Technically,
+    # the public methods pass the matching method references to the
+    # private method containing the algorithm:
     def minosUpar( self, parspec, chisqmin=None, delta=1.0 ):
         ipar= self.__parameterIndex( parspec, self.__uparnames )
         return self.__minos( ipar, chisqmin, delta,
@@ -526,6 +541,7 @@ class clsqSolver:
         errlo= brentq( fun, a, b, xtol=1.0e-6, rtol=1.0e-6 )
         self.solve()
         return errhi-result, errlo-result
+
 
     def contour( self, iparspec, iopt, jparspec, jopt,
                  delta=1.0, nstep=20, stepsize=0.1 ):
@@ -571,6 +587,8 @@ class clsqSolver:
             releasePar( ipar, lpr=False )
         return contourx, contoury
 
+    # 2D Chi^2 profile obtained by fixing both parameters on a grid
+    # and re-solving at each point:
     def profile2d( self, ipar, iopt, jpar, jopt, nstep=11, stepsize=0.5 ):
         values= []
         errors= []
@@ -614,7 +632,19 @@ class clsqSolver:
         self.solve()
         return steplists, resultlists
 
+    # Helper method to find global index of a parameter corresponding to
+    # solution vector (unmeasured and measured parameters) given index or name:
+    def __parameterIndex( self, parspec, parnames ):
+        if isinstance( parspec, int ):
+            ipar= parspec
+        elif isinstance( parspec, str ):
+            ipar= parnames.index( parspec )
+        else:
+            raise TypeError( "parspec neither int nor str" )
+        return ipar
 
+# Helper function object (callable) class to handle extra constraints
+# for parameter fixing and releasing:
 class funcobj:
     def __init__( self, ipar, val, opt="u" ):
         self.__ipar= ipar
@@ -633,9 +663,10 @@ class funcobj:
     def __call__( self, mpar, upar ):
         return [ self.__constraint( mpar, upar ) ]
 
-
+# Class contains constraints calculations:
 class Constraints:
 
+    # Ctor, takes external constraint function reference and its optional arguments:
     def __init__( self, Fun, args=(), epsilon=1.0e-4 ):
         self.__ConstrFun= Fun
         self.__args= args
@@ -643,11 +674,17 @@ class Constraints:
         self.__Constraints= []
         return
 
+    # Add or remove a constraint, i.e. activate or deactivate it, this handles
+    # parameter fixing or releasing by introducing additional constraints:
     def addConstraint( self, constraintFun ):
         self.__Constraints.append( constraintFun )
+        return
     def removeConstraint( self, constraintFun ):
         self.__Constraints.remove( constraintFun )
+        return
 
+    # Return all active constraints given values of measured and unmeasured
+    # parameters:
     def calculate( self, mpar, upar ):
         constraints= self.__ConstrFun( mpar, upar, *self.__args )
         for constraint in self.__Constraints:
@@ -655,6 +692,10 @@ class Constraints:
         constraintsvector= columnMatrixFromList( constraints )
         return constraintsvector
 
+    # Calculate derivatives of constraints w.r.t. measured or unmeasured parameters.
+    # The private method varies the first and keeps the second vector of parameters
+    # fixe, the two public methods set up their internal functions accordingly. The
+    # numerical method is a five-point-stencil:
     def derivativeM( self, mpar, upar ):
         def calcM( varpar, fixpar ):
             return self.calculate( varpar, fixpar )
@@ -681,7 +722,7 @@ class Constraints:
             dcdp[:,ipar]= columns[ipar]
         return dcdp
 
-
+# Helper functions for numerical derivative calculations:
 def setH( eps, val ):
     result= eps
     if abs( val ) > 1.0e-6:
