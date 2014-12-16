@@ -18,13 +18,14 @@ class clhoodSolver( clsqSolver ):
                              constraintfunction, cargs, epsilon,
                              maxiter, deltachisq,
                              mparnames, uparnames ) 
-        self.covm= None
+        self.__mparv= self.getMparv()
+        self.__covm= None
         self.__lhood= Likelihood( lhoodfun, largs )
         return
 
     def prepareRhsv( self, dim, datadim, upardim, constrv ):
         rhsv= clsqSolver.prepareRhsv( self, dim, datadim, upardim, constrv )
-        dldp= self.__lhood.firstDerivatives( self.mparv )
+        dldp= self.__lhood.firstDerivatives( self.__mparv )
         rhsv[:datadim]= - dldp
         return rhsv
 
@@ -32,22 +33,22 @@ class clhoodSolver( clsqSolver ):
                          c11, c21, c31, c32, c33, constrv ):
         deltapar= clsqSolver.prepareDeltapar( self, datadim, upardim, constrdim,
                                               c11, c21, c31, c32, c33, constrv )
-        dldp= self.__lhood.firstDerivatives( self.mparv )
+        dldp= self.__lhood.firstDerivatives( self.__mparv )
         deltapar[:datadim]-= c11*dldp
         deltapar[datadim:datadim+upardim]-= c21*dldp
         deltapar[datadim+upardim:]-= c31*dldp
         return deltapar
 
     def getCovm( self ):
-        dl2dp2= self.__lhood.secondDerivatives( self.mparv )
-        self.invm= dl2dp2
-        self.covm= self.invm.getI()
-        return self.covm
+        dl2dp2= self.__lhood.secondDerivatives( self.__mparv )
+        self.__invm= dl2dp2
+        self.__covm= self.__invm.getI()
+        return self.__covm
 
     def getInvm( self ):
-        dl2dp2= self.__lhood.secondDerivatives( self.mparv )
-        self.invm= dl2dp2
-        return self.invm
+        dl2dp2= self.__lhood.secondDerivatives( self.__mparv )
+        self.__invm= dl2dp2
+        return self.__invm
 
     def printTitle( self ):
         print  "\nConstrained maximum likelihood"
@@ -55,7 +56,7 @@ class clhoodSolver( clsqSolver ):
 
     def printFitParameters( self, chisq, ndof, ffmt ):
         fmtstr= "\nLikelihood= {0:"+ffmt+"}"
-        print fmtstr.format( self.__lhood.value( self.mparv ) )
+        print fmtstr.format( self.__lhood.value( self.__mparv ) )
         clsqSolver.printFitParameters( self, chisq, ndof, ffmt )
         return
 

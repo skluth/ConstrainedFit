@@ -34,25 +34,25 @@ class clsqSolver:
                   maxiter= 100, deltachisq=0.0001,
                   mparnames=None, uparnames=None,
                   ndof=None ):
-        self.constraints= Constraints( constraintfunction, args, epsilon )
-        self.datav= columnMatrixFromList( data )
-        self.mparv= self.datav.copy()
-        self.uparv= columnMatrixFromList( upar )
-        self.covm= matrix( covm )
-        self.invm= None
-        self.pm= None
-        self.pminv= None
-        self.niterations= 0
-        self.uparnames= self.__setParNames( uparnames, len(self.uparv) )
-        self.mparnames= self.__setParNames( mparnames, len(self.mparv) )
-        self.maxiterations= maxiter
-        self.deltachisq= deltachisq
+        self.__constraints= Constraints( constraintfunction, args, epsilon )
+        self.__datav= columnMatrixFromList( data )
+        self.__mparv= self.__datav.copy()
+        self.__uparv= columnMatrixFromList( upar )
+        self.__covm= matrix( covm )
+        self.__invm= None
+        self.__pm= None
+        self.__pminv= None
+        self.__niterations= 0
+        self.__uparnames= self.__setParNames( uparnames, len(self.__uparv) )
+        self.__mparnames= self.__setParNames( mparnames, len(self.__mparv) )
+        self.__maxiterations= maxiter
+        self.__deltachisq= deltachisq
         if ndof == None:
-            self.ndof= len(self.datav) - len(self.uparv)
+            self.__ndof= len(self.__datav) - len(self.__uparv)
         else:
-            self.ndof= ndof
-        self.fixedUparFunctions= {}
-        self.fixedMparFunctions= {}
+            self.__ndof= ndof
+        self.__fixedUparFunctions= {}
+        self.__fixedMparFunctions= {}
         return
 
     def __setParNames( self, parnames, npar ):
@@ -67,19 +67,19 @@ class clsqSolver:
 
     def solve( self, lpr=False, lBlobel=False ):
         self.lBlobel= lBlobel
-        self.mparv= self.datav.copy()
-        datadim= self.datav.shape[0]
-        upardim= self.uparv.shape[0]
-        constrv= self.constraints.calculate( self.mparv, self.uparv )
+        self.__mparv= self.__datav.copy()
+        datadim= self.__datav.shape[0]
+        upardim= self.__uparv.shape[0]
+        constrv= self.__constraints.calculate( self.__mparv, self.__uparv )
         cnstrdim= constrv.shape[0]
         dim= datadim + upardim + cnstrdim
         startpar= matrix( zeros(shape=(dim,1)) )
         self.chisq= 0.0
         if lpr:
             print "Chi^2 before fit:", self.chisq
-        self.niterations= 0
-        for iiter in range( self.maxiterations ):
-            self.niterations+= 1
+        self.__niterations= 0
+        for iiter in range( self.__maxiterations ):
+            self.__niterations+= 1
             if lpr:
                 print "iteration", iiter
                 if lBlobel:
@@ -87,62 +87,62 @@ class clsqSolver:
                 else:
                     print "Solution by inversion"
             # Calculate derivatives and constraints:
-            dcdmpm= self.constraints.derivativeM( self.mparv, self.uparv )
-            dcdupm= self.constraints.derivativeU( self.mparv, self.uparv )
-            constrv= - self.constraints.calculate( self.mparv, self.uparv )
+            dcdmpm= self.__constraints.derivativeM( self.__mparv, self.__uparv )
+            dcdupm= self.__constraints.derivativeU( self.__mparv, self.__uparv )
+            constrv= - self.__constraints.calculate( self.__mparv, self.__uparv )
             # Solve problem:
-            startpar[:datadim]= self.mparv
-            startpar[datadim:datadim+upardim]= self.uparv
+            startpar[:datadim]= self.__mparv
+            startpar[datadim:datadim+upardim]= self.__uparv
             if not lBlobel:
                 deltapar, c33= self.__solveByInversion( dcdmpm, 
                                                         dcdupm, 
                                                         constrv )
             else:
-                deltapar, c33= self.solveByPartition( dcdmpm, 
-                                                      dcdupm, 
-                                                      constrv )
+                deltapar, c33= self.__solveByPartition( dcdmpm, 
+                                                        dcdupm, 
+                                                        constrv )
             newpar= startpar + deltapar
-            self.mparv= newpar[:datadim]
-            self.uparv= newpar[datadim:datadim+upardim]
+            self.__mparv= newpar[:datadim]
+            self.__uparv= newpar[datadim:datadim+upardim]
             # Check if chi^2 changed:
             chisqnew= self.calcChisq( dcdmpm, c33 )
             if lpr:
                 print "Chi^2=", chisqnew
-            if( abs(chisqnew-self.chisq) < self.deltachisq and
+            if( abs(chisqnew-self.chisq) < self.__deltachisq and
                 iiter > 0 ):
                 break
             self.chisq= chisqnew
         return
 
     def __solveByInversion( self, dcdmpm, dcdupm, constrv ):
-        self.pm= self.__makeProblemMatrix( dcdmpm, dcdupm )
-        self.pminv= None
+        self.__pm= self.__makeProblemMatrix( dcdmpm, dcdupm )
+        self.__pminv= None
         datadim= dcdmpm.shape[1]
         upardim= dcdupm.shape[1]
-        dim= self.pm.shape[0]
-        rhsv= self.prepareRhsv( dim, datadim, upardim, constrv )
-        deltapar= linalg.solve( self.pm, rhsv )
-        self.pminv= self.pm.getI()
-        c33= self.pminv[datadim+upardim:,datadim+upardim:]
+        dim= self.__pm.shape[0]
+        rhsv= self.__prepareRhsv( dim, datadim, upardim, constrv )
+        deltapar= linalg.solve( self.__pm, rhsv )
+        self.__pminv= self.__pm.getI()
+        c33= self.__pminv[datadim+upardim:,datadim+upardim:]
         return deltapar, c33
 
-    def prepareRhsv( self, dim, datadim, upardim, constrv ):
+    def __prepareRhsv( self, dim, datadim, upardim, constrv ):
         rhsv= matrix( zeros(shape=(dim,1)) )
         rhsv[datadim+upardim:]= constrv
         return rhsv
 
-    def solveByPartition( self, dcdmpm, dcdupm, constrv ):
-        c11, c21, c31, c32, c33, errorMatrix= self.makeInverseProblemMatrix( dcdmpm,
-                                                                             dcdupm )
-        self.pminv= errorMatrix
+    def __solveByPartition( self, dcdmpm, dcdupm, constrv ):
+        c11, c21, c31, c32, c33, errorMatrix= self.__makeInverseProblemMatrix( dcdmpm,
+                                                                               dcdupm )
+        self.__pminv= errorMatrix
         datadim= dcdmpm.shape[1]
         upardim= dcdupm.shape[1]
         constrdim= dcdmpm.shape[0]
-        deltapar= self.prepareDeltapar( datadim, upardim, constrdim,
-                                        c11, c21, c31, c32, c33, constrv )
+        deltapar= self.__prepareDeltapar( datadim, upardim, constrdim,
+                                          c11, c21, c31, c32, c33, constrv )
         return deltapar, c33
 
-    def prepareDeltapar( self, datadim, upardim, constrdim,
+    def __prepareDeltapar( self, datadim, upardim, constrdim,
                          c11, c21, c31, c32, c33, constrv ):
         dim= datadim+upardim+constrdim
         deltapar= matrix( zeros(shape=(dim,1)) )
@@ -152,7 +152,7 @@ class clsqSolver:
         return deltapar
 
     def calcChisq( self, dcdmpm, c33 ):
-        deltay= self.datav - self.mparv
+        deltay= self.__datav - self.__mparv
         c= dcdmpm*deltay
         chisq= - c.getT()*c33*c
         return chisq
@@ -161,7 +161,7 @@ class clsqSolver:
         return float( self.chisq[0,0] )
 
     def getNdof( self ):
-        return self.ndof
+        return self.__ndof
 
     def __printPars( self, par, parerrs, parnames, fixedParFunctions,
                      ffmt=".4f", pulls=None ):
@@ -195,7 +195,7 @@ class clsqSolver:
             print "using solution by partition:"
         else:
             print "using solution by inversion:"
-        print "\nIterations:", self.niterations
+        print "\nIterations:", self.__niterations
         print "\nConstraints:"
         constraints= self.getConstraints()
         for constraint in constraints:
@@ -209,38 +209,38 @@ class clsqSolver:
         print "           Name       Value          Error"
         upar= self.getUpar()
         self.__printPars( upar, self.getUparErrors(), 
-                          self.uparnames, self.fixedUparFunctions,
+                          self.__uparnames, self.__fixedUparFunctions,
                           ffmt=ffmt )
         set_printoptions( linewidth=132, precision=4 )
         if len(upar) > 1:
             if cov:
                 print "\nCovariance matrix:"
                 self.__printMatrix( self.getUparErrorMatrix(), ".3e", 
-                                    self.uparnames )
+                                    self.__uparnames )
             if corr:
                 print "\nCorrelation matrix:"
                 self.__printMatrix( self.getUparCorrMatrix(), ".3f",
-                                    self.uparnames )
+                                    self.__uparnames )
         print "\nMeasured parameters:"
         print "           Name       Value          Error       Pull"
         mpar= self.getMpar()
         self.__printPars( mpar, self.getMparErrors(), 
-                          self.mparnames, self.fixedMparFunctions,
+                          self.__mparnames, self.__fixedMparFunctions,
                           ffmt=ffmt, 
                           pulls=self.getMparPulls() )
         if len(mpar) > 1:
             if cov:
                 print "\nCovariance matrix:"
                 self.__printMatrix( self.getMparErrorMatrix(), ".3e", 
-                                    self.mparnames )
+                                    self.__mparnames )
             if corr:
                 print "\nCorrelation matrix:"
                 self.__printMatrix( self.getMparCorrMatrix(), ".3f", 
-                                    self.mparnames )
+                                    self.__mparnames )
         if corr:
             print "\nTotal correlations unmeasured and measured parameters:"
             self.__printMatrix( self.getCorrMatrix(), ".3f", 
-                                self.mparnames+self.uparnames )
+                                self.__mparnames+self.__uparnames )
         set_printoptions()
         return
 
@@ -259,7 +259,7 @@ class clsqSolver:
         return
 
     def getConstraints( self ):
-        constrv= self.constraints.calculate( self.mparv, self.uparv )
+        constrv= self.__constraints.calculate( self.__mparv, self.__uparv )
         lconstr= [ value for value in constrv.flat ]
         return lconstr
 
@@ -268,49 +268,51 @@ class clsqSolver:
     def getParErrors( self ):
         return self.getUparErrors()+self.getMparErrors()
     def getUparv( self ):
-        return self.uparv
+        return self.__uparv
+    def getMparv( self ):
+        return self.__mparv
     def getUpar( self ):
-        return [ upar for upar in self.uparv.flat ]
+        return [ upar for upar in self.__uparv.flat ]
     def getMpar( self ):
-        return [ mpar for mpar in self.mparv.flat ]
+        return [ mpar for mpar in self.__mparv.flat ]
     def getUparNames( self ):
-        return list( self.uparnames )
+        return list( self.__uparnames )
     def getMparNames( self ):
-        return list( self.mparnames )
+        return list( self.__mparnames )
     def getUparErrors( self ):
-        if self.pminv == None:
-            self.pminv= self.pm.getI()
-        datadim= self.datav.shape[0]
-        upardim= self.uparv.shape[0]
+        if self.__pminv == None:
+            self.__pminv= self.__pm.getI()
+        datadim= self.__datav.shape[0]
+        upardim= self.__uparv.shape[0]
         errors= []
         for i in range( datadim, datadim+upardim ):
-            errors.append( sqrt( abs(self.pminv[i,i]) ) )
+            errors.append( sqrt( abs(self.__pminv[i,i]) ) )
         return errors
     def getMparErrors( self ):
-        if self.pminv == None:
-            self.pminv= self.pm.getI()
-        datadim= self.datav.shape[0]
+        if self.__pminv == None:
+            self.__pminv= self.__pm.getI()
+        datadim= self.__datav.shape[0]
         errors= []
         for i in range( datadim ):
-            errors.append( sqrt( abs(self.pminv[i,i]) ) )
+            errors.append( sqrt( abs(self.__pminv[i,i]) ) )
         return errors
     def getUparErrorMatrix( self ):
-        if self.pminv == None:
-            self.pminv= self.pm.getI()
-        datadim= self.datav.shape[0]
-        upardim= self.uparv.shape[0]
-        return self.pminv[datadim:datadim+upardim,datadim:datadim+upardim]
+        if self.__pminv == None:
+            self.__pminv= self.__pm.getI()
+        datadim= self.__datav.shape[0]
+        upardim= self.__uparv.shape[0]
+        return self.__pminv[datadim:datadim+upardim,datadim:datadim+upardim]
     def getMparErrorMatrix( self ):
-        if self.pminv == None:
-            self.pminv= self.pm.getI()
-        datadim= self.datav.shape[0]
-        return self.pminv[:datadim,:datadim]
+        if self.__pminv == None:
+            self.__pminv= self.__pm.getI()
+        datadim= self.__datav.shape[0]
+        return self.__pminv[:datadim,:datadim]
     def getErrorMatrix( self ):
-        if self.pminv == None:
-            self.pminv= self.pm.getI()
-        datadim= self.datav.shape[0]
-        upardim= self.uparv.shape[0]
-        return self.pminv[:datadim+upardim,:datadim+upardim]
+        if self.__pminv == None:
+            self.__pminv= self.__pm.getI()
+        datadim= self.__datav.shape[0]
+        upardim= self.__uparv.shape[0]
+        return self.__pminv[:datadim+upardim,:datadim+upardim]
     def getUparCorrMatrix( self ):
         return self.__getCorrMatrix( "u" )
     def getMparCorrMatrix( self ):
@@ -333,22 +335,22 @@ class clsqSolver:
         return corrmatrix
 
     def getCovm( self ):
-        return self.covm
+        return self.__covm
 
     def getInvm( self ):
-        if self.invm == None:
-            self.invm= self.covm.getI()
-        return self.invm
+        if self.__invm == None:
+            self.__invm= self.__covm.getI()
+        return self.__invm
 
     def getData( self ):
-        return self.datav
+        return self.__datav
 
     # Calculate pulls for measured parameters a la Blobel
     # from errors on Deltax = "measured parameter - data"
     def getMparPulls( self ):
         covm= self.getCovm()
-        mpar= [ par for par in self.mparv.flat ]
-        data= [ datum for datum in self.datav.flat ]
+        mpar= [ par for par in self.__mparv.flat ]
+        data= [ datum for datum in self.__datav.flat ]
         errors= self.getMparErrors()
         for i in range( len(errors) ):
             errors[i]= sqrt( covm[i,i] - errors[i]**2 )
@@ -376,7 +378,7 @@ class clsqSolver:
         pm[datadim+upardim:,datadim:datadim+upardim]= dcdupm
         return pm
 
-    def makeInverseProblemMatrix( self, dcdmpm, dcdupm ):
+    def __makeInverseProblemMatrix( self, dcdmpm, dcdupm ):
         covm= self.getCovm()
         dcdmpmT= dcdmpm.getT()
         dcdupmT= dcdupm.getT()
@@ -407,22 +409,23 @@ class clsqSolver:
         return c11, c21, c31, c32, c33, errorMatrix
 
     def fixUpar( self, parspec, val=None, lpr=True ):
-        ipar= self.__parameterIndex( parspec, self.uparnames )
+        ipar= self.__parameterIndex( parspec, self.__uparnames )
         if val == None:
-            val= [ upar for upar in self.uparv.flat ][ipar]
+            #val= [ upar for upar in self.uparv.flat ][ipar]
+            val= self.__uparv[ipar].item()
         fixUparConstraint= funcobj( ipar, val, "u" )
-        self.fixedUparFunctions[ipar]= fixUparConstraint
-        self.constraints.addConstraint( fixUparConstraint )
+        self.__fixedUparFunctions[ipar]= fixUparConstraint
+        self.__constraints.addConstraint( fixUparConstraint )
         if lpr:
-            print "Fixed unmeasured parameter", self.uparnames[ipar], "to", val
+            print "Fixed unmeasured parameter", self.__uparnames[ipar], "to", val
         return
     def releaseUpar( self, parspec, lpr=True ):
-        ipar= self.__parameterIndex( parspec, self.uparnames )
-        fixUparConstraint= self.fixedUparFunctions[ipar]
-        self.constraints.removeConstraint( fixUparConstraint )
-        del self.fixedUparFunctions[ipar]
+        ipar= self.__parameterIndex( parspec, self.__uparnames )
+        fixUparConstraint= self.__fixedUparFunctions[ipar]
+        self.__constraints.removeConstraint( fixUparConstraint )
+        del self.__fixedUparFunctions[ipar]
         if lpr:
-            print "Released unmeasured parameter", self.uparnames[ipar]
+            print "Released unmeasured parameter", self.__uparnames[ipar]
         return
 
     def __parameterIndex( self, parspec, parnames ):
@@ -435,43 +438,44 @@ class clsqSolver:
         return ipar
 
     def fixMpar( self, parspec, val=None, lpr=True ):
-        ipar= self.__parameterIndex( parspec, self.mparnames )
+        ipar= self.__parameterIndex( parspec, self.__mparnames )
         if val == None:
-            val= [ mpar for mpar in self.mparv.flat ][ipar]
+            #val= [ mpar for mpar in self.mparv.flat ][ipar]
+            val= self.__mparv[ipar].item()
         fixMparConstraint= funcobj( ipar, val, "m" )
-        self.fixedMparFunctions[ipar]= fixMparConstraint
-        self.constraints.addConstraint( fixMparConstraint )
+        self.__fixedMparFunctions[ipar]= fixMparConstraint
+        self.__constraints.addConstraint( fixMparConstraint )
         if lpr:
-            print "Fixed measured parameter", self.mparnames[ipar], "to", val
+            print "Fixed measured parameter", self.__mparnames[ipar], "to", val
         return
     def releaseMpar( self, parspec, lpr=True ):
-        ipar= self.__parameterIndex( parspec, self.mparnames )
-        fixMparConstraint= self.fixedMparFunctions[ipar]
-        self.constraints.removeConstraint( fixMparConstraint )
-        del self.fixedMparFunctions[ipar]
+        ipar= self.__parameterIndex( parspec, self.__mparnames )
+        fixMparConstraint= self.__fixedMparFunctions[ipar]
+        self.__constraints.removeConstraint( fixMparConstraint )
+        del self.__fixedMparFunctions[ipar]
         if lpr:
-            print "Released measured parameter", self.mparnames[ipar]
+            print "Released measured parameter", self.__mparnames[ipar]
         return
 
     def setUpar( self, parspec, val ):
-        ipar= self.__parameterIndex( parspec, self.uparnames )
-        self.uparv[ipar]= val
-        print "Set unmeasured parameter", self.uparnames[ipar], "to", val
+        ipar= self.__parameterIndex( parspec, self.__uparnames )
+        self.__uparv[ipar]= val
+        print "Set unmeasured parameter", self.__uparnames[ipar], "to", val
         return
     def setMpar( self, parspec, val ):
-        ipar= self.__parameterIndex( parspec, self.mparnames )
-        self.mparv[ipar]= val
-        print "Set measured parameter", self.mparnames[ipar], "to", val
+        ipar= self.__parameterIndex( parspec, self.__mparnames )
+        self.__mparv[ipar]= val
+        print "Set measured parameter", self.__mparnames[ipar], "to", val
         return
 
     def profileUpar( self, parspec, nstep=5, stepsize=1.0 ):
-        ipar= self.__parameterIndex( parspec, self.uparnames )
+        ipar= self.__parameterIndex( parspec, self.__uparnames )
         steps, results= self.__profile( ipar, nstep, stepsize,
                                         self.getUpar, self.getUparErrors, 
                                         self.fixUpar, self.releaseUpar )
         return steps, results
     def profileMpar( self, parspec, nstep=5, stepsize=1.0 ):
-        ipar= self.__parameterIndex( parspec, self.mparnames )
+        ipar= self.__parameterIndex( parspec, self.__mparnames )
         steps, results= self.__profile( ipar, nstep, stepsize,
                                         self.getMpar, self.getMparErrors, 
                                         self.fixMpar, self.releaseMpar )
@@ -493,12 +497,12 @@ class clsqSolver:
         return steps, results
 
     def minosUpar( self, parspec, chisqmin=None, delta=1.0 ):
-        ipar= self.__parameterIndex( parspec, self.uparnames )
+        ipar= self.__parameterIndex( parspec, self.__uparnames )
         return self.__minos( ipar, chisqmin, delta,
                               self.getUpar, self.getUparErrors, 
                               self.fixUpar, self.releaseUpar )
     def minosMpar( self, parspec, chisqmin=None, delta=1.0 ):
-        ipar= self.__parameterIndex( parspec, self.mparnames )
+        ipar= self.__parameterIndex( parspec, self.__mparnames )
         return self.__minos( ipar, chisqmin, delta,
                               self.getMpar, self.getMparErrors, 
                               self.fixMpar, self.releaseMpar )
@@ -528,23 +532,23 @@ class clsqSolver:
         self.solve()
         chisqmin= self.getChisq()
         if iopt == "u":
-            ipar= self.__parameterIndex( iparspec, self.uparnames )
+            ipar= self.__parameterIndex( iparspec, self.__uparnames )
             value= self.getUpar()[ipar]
             error= self.getUparErrors()[ipar]
             fixPar= self.fixUpar
             releasePar= self.releaseUpar
         elif iopt == "m":
-            ipar= self.__parameterIndex( iparspec, self.mparnames )
+            ipar= self.__parameterIndex( iparspec, self.__mparnames )
             value= self.getMpar()[ipar]
             error= self.getMparErrors()[ipar]
             fixPar= self.fixMpar
             releasePar= self.releaseMpar
         if jopt == "u":
-            jpar= self.__parameterIndex( jparspec, self.uparnames )
+            jpar= self.__parameterIndex( jparspec, self.__uparnames )
             minos= self.minosUpar
             getPar= self.getUpar
         elif jopt == "m":
-            jpar= self.__parameterIndex( jparspec, self.mparnames )
+            jpar= self.__parameterIndex( jparspec, self.__mparnames )
             minos= self.minosMpar
             getPar= self.getMpar
         steps= []
