@@ -74,7 +74,7 @@ def Branchingratios( opt="m" ):
     if "m" in opt:
         _doMinos( solver, "u" )
     if "cont" in opt:
-        _doContour( solver, ipar1=2, type1="u", ipar2=3, type2="u" )
+        _doProfile2d( solver, ipar1=0, type1="u", ipar2=1, type2="u" )
 
     return
 
@@ -288,7 +288,7 @@ def StraightLine( opt="" ):
     if "m" in opt:
         _doMinos( solver, "u" )
     if "cont" in opt:
-        _doContour( solver, ipar1=0, type1="u", ipar2=1, type2="u" )
+        _doProfile2d( solver, ipar1=0, type1="u", ipar2=1, type2="u" )
 
     return
 
@@ -371,15 +371,77 @@ def Triangle( opt="" ):
     lCorr= False
     if "b" in opt:
         lBlobel= True
+    if "corr" in opt:
+        lCorr= True
     solver.solve( lBlobel=lBlobel )
-    solver.printResults( corr=True )
+    solver.printResults( corr=lCorr )
 
     if "m" in opt:
         _doMinos( solver )
-    if "c" in opt:
-        _doContour( solver, ipar1=0, type1="u", ipar2=3, type2="m" )
+    if "cont" in opt:
+        _doProfile2d( solver, ipar1=0, type1="u", ipar2=1, type2="m" )
 
     return
+
+
+def _doProfile2d( solver, ipar1=0, type1="u", ipar2=1, type2= "m" ):
+    from ROOT import TGraph2D, TMarker
+    from array import array
+    global tg2d, hist, te1, te2, te3, tm
+    par1, err1, name1= _getUMParErrName( solver, ipar1, type1 )
+    par2, err2, name2= _getUMParErrName( solver, ipar2, type2 )
+    print "\nChi^2 profile plot " + name1 + " - " + name2 + ":"
+    corr= solver.getCorrMatrix()
+    icorr1= ipar1
+    icorr2= ipar2
+    if type1 == "u" or type2 == "u":
+        nmpar= len(solver.getMpar())
+        if type1 == "u":
+            icorr1= nmpar + ipar1
+        if type2 == "u":
+            icorr2= nmpar + ipar2
+    rho= corr[icorr1,icorr2]
+    te1= _makeEllipse( par1, par2, err1, err2, rho )
+    te2= _makeEllipse( par1, par2, 2.0*err1, 2.0*err2, rho )
+    te3= _makeEllipse( par1, par2, 3.0*err1, 3.0*err2, rho )
+    points= solver.profile2d( ipar1, type1, ipar2, type2 )
+    npoints= len(points)
+    tg2d= TGraph2D( npoints )
+    for i in range( npoints ):
+        point= points[i]
+        tg2d.SetPoint( i, point[0], point[1], point[2] )
+    hist= tg2d.GetHistogram()
+    contourlevels= array( "d", [ 1.0, 4.0, 9.0 ] )
+    hist.SetContour( 3, contourlevels )     
+    xa= hist.GetXaxis()
+    ya= hist.GetYaxis()
+    xa.SetTitle( name1 )
+    ya.SetTitle( name2 )
+    hist.Draw( "cont1" )
+    tm= TMarker( par1, par2, 20 )
+    tm.Draw( "s" )
+    te1.Draw( "s" )
+    te2.Draw( "s" )
+    te3.Draw( "s" )
+    return
+
+
+def _getUMParErrName( solver, pindx, ptype ):
+    par= None
+    err= None
+    name= None
+    if ptype == "u":
+        par= solver.getUpar()[pindx]
+        err= solver.getUparErrors()[pindx]
+        name= solver.getUparNames()[pindx]
+    elif ptype == "m":
+        par= solver.getMpar()[pindx]
+        err= solver.getMparErrors()[pindx]
+        name= solver.getMparNames()[pindx]
+    else:
+        print "getUMPar: error, ptype not recognised:", ptype
+    return par, err, name
+    
 
 def _doMinos( solver, opt="um" ):
     print "\nMinos error profiling:"
