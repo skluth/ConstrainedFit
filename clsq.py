@@ -591,7 +591,7 @@ class clsqSolver:
 
     # 2D Chi^2 profile obtained by fixing both parameters on a grid
     # and re-solving at each point:
-    def profile2d( self, ipar, iopt, jpar, jopt, nstep=11, stepsize=0.5 ):
+    def profile2d( self, ipar, iopt, jpar, jopt, sigma=3.0, nstep=21 ):
         values= []
         errors= []
         if iopt == "u":
@@ -615,24 +615,26 @@ class clsqSolver:
             fixJpar= self.fixMpar
             releaseJpar= self.releaseMpar
         steplists= []
+        stepsize= 1.0/(nstep/2)
         for value, error in zip( values, errors ):
             steps= []
             for i in range( nstep ):
-                steps.append( (i-nstep/2)*error*stepsize + value )
+                steps.append( (i-nstep/2)*error*stepsize*sigma + value )
             steplists.append( steps )
-        resultlists= []
+        resultlist= []
+        chisqmin= self.getChisq()
         for istep in steplists[0]:
             fixIpar( ipar, istep, lpr=False )
             results= []
             for jstep in steplists[1]:
                 fixJpar( jpar, jstep, lpr=False )
                 self.solve()
-                results.append( self.getChisq() )
+                result= ( istep, jstep, self.getChisq() - chisqmin )
+                resultlist.append( result )
                 releaseJpar( jpar, lpr=False )
             releaseIpar( ipar, lpr=False )
-            resultlists.append( results )
         self.solve()
-        return steplists, resultlists
+        return resultlist
 
     # Helper method to find global index of a parameter corresponding to
     # solution vector (unmeasured and measured parameters) given index or name:
