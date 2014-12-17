@@ -97,13 +97,13 @@ class clsqSolverTest( unittest.TestCase ):
         return
 
     def __checkSolution( self ):
-        mpar= self.__solver.getMpar()
-        upar= self.__solver.getUpar()
-        expectedmpar= [ 0.98, 2.0, 3.02, 4.04, 5.06 ]
-        for par, expectedpar in zip( mpar, expectedmpar ):
+        mpars= self.__solver.getMpars()
+        upars= self.__solver.getUpars()
+        expectedmpars= [ 0.98, 2.0, 3.02, 4.04, 5.06 ]
+        for par, expectedpar in zip( mpars, expectedmpars ):
             self.assertAlmostEqual( par, expectedpar )
-        expectedupar= [ -0.04, 1.02 ]
-        for par, expectedpar in zip( upar, expectedupar ):
+        expectedupars= [ -0.04, 1.02 ]
+        for par, expectedpar in zip( upars, expectedupars ):
             self.assertAlmostEqual( par, expectedpar )
         return
 
