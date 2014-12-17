@@ -72,7 +72,7 @@ def Branchingratios( opt="m" ):
     solver.printResults( cov=lcov, corr=lcorr )
 
     if "m" in opt:
-        _doMinos( solver, "u" )
+        _doMinosAll( solver, "u" )
     if "cont" in opt:
         _doProfile2d( solver, ipar1=0, type1="u", ipar2=1, type2="u" )
 
@@ -377,14 +377,20 @@ def Triangle( opt="" ):
     solver.printResults( corr=lCorr )
 
     if "m" in opt:
-        _doMinos( solver )
+        _doMinosAll( solver )
+
     if "cont" in opt:
         _doProfile2d( solver, ipar1=0, type1="u", ipar2=1, type2="m" )
 
-    return
+    print "Profile A"
+    results= clsq.profile( solver, 0, "u" )
+    print results
+
+    return solver
 
 
 def _doProfile2d( solver, ipar1=0, type1="u", ipar2=1, type2= "m" ):
+    from ConstrainedFit import clsq
     from ROOT import TGraph2D, TMarker
     from array import array
     global tg2d, hist, te1, te2, te3, tm
@@ -395,7 +401,7 @@ def _doProfile2d( solver, ipar1=0, type1="u", ipar2=1, type2= "m" ):
     icorr1= ipar1
     icorr2= ipar2
     if type1 == "u" or type2 == "u":
-        nmpar= len(solver.getMpar())
+        nmpar= len(solver.getMpars())
         if type1 == "u":
             icorr1= nmpar + ipar1
         if type2 == "u":
@@ -404,7 +410,10 @@ def _doProfile2d( solver, ipar1=0, type1="u", ipar2=1, type2= "m" ):
     te1= _makeEllipse( par1, par2, err1, err2, rho )
     te2= _makeEllipse( par1, par2, 2.0*err1, 2.0*err2, rho )
     te3= _makeEllipse( par1, par2, 3.0*err1, 3.0*err2, rho )
-    points= solver.profile2d( ipar1, type1, ipar2, type2 )
+
+    # points= solver.profile2d( ipar1, type1, ipar2, type2 )
+    points= clsq.profile2d( solver, ipar1, type1, ipar2, type2 )
+
     npoints= len(points)
     tg2d= TGraph2D( npoints )
     for i in range( npoints ):
@@ -427,102 +436,28 @@ def _doProfile2d( solver, ipar1=0, type1="u", ipar2=1, type2= "m" ):
 
 
 def _getUMParErrName( solver, pindx, ptype ):
-    par= None
-    err= None
-    name= None
-    if ptype == "u":
-        par= solver.getUpar()[pindx]
-        err= solver.getUparErrors()[pindx]
-        name= solver.getUparNames()[pindx]
-    elif ptype == "m":
-        par= solver.getMpar()[pindx]
-        err= solver.getMparErrors()[pindx]
-        name= solver.getMparNames()[pindx]
-    else:
-        print "getUMPar: error, ptype not recognised:", ptype
+    from ConstrainedFit import clsq
+    par= clsq.getPar( solver, pindx, ptype )
+    err= clsq.getErr( solver, pindx, ptype )
+    name= clsq.getParName( solver, pindx, ptype )
     return par, err, name
-    
 
-def _doMinos( solver, opt="um" ):
-    print "\nMinos error profiling:"
+
+def _doMinos( solver, ipar=0, ptype="u" ):
+    from ConstrainedFit import clsq
+    result= clsq.getPar( solver, ipar, ptype )
+    name= clsq.getParName( solver, ipar, ptype )
+    errhi, errlo= clsq.minos( solver, ipar, ptype )
     fmtstr= "{0:>10s}: {1:10.4f} + {2:6.4f} - {3:6.4f}"
+    print fmtstr.format( name, result, errhi, abs(errlo) )
+def _doMinosAll( solver, opt="um" ):
+    print "\nMinos error profiling:"
     if "u" in opt:
-        results= solver.getUpar()
-        upnames= solver.getUparNames()
-        for ipar in range( len(results) ):
-            errhi, errlo= solver.minosUpar( ipar )
-            print fmtstr.format( upnames[ipar], results[ipar], errhi, abs(errlo) )
+        for ipar in range( len(solver.getUpars()) ):
+            _doMinos( solver, ipar, "u" )
     if "m" in opt:
-        results= solver.getMpar()
-        mpnames= solver.getMparNames()
-        for ipar in range( len(results) ):
-            errhi, errlo= solver.minosMpar( ipar )
-            print fmtstr.format( mpnames[ipar], results[ipar], errhi, abs(errlo) )
-    return
-
-def _doContour( solver, ipar1=0, type1="u", ipar2=1, type2="m" ):
-    from array import array
-    from ROOT import TGraph, TMultiGraph
-    def getUMParErrName( pindx, ptype ):
-        par= None
-        err= None
-        name= None
-        if ptype == "u":
-            par= solver.getUpar()[pindx]
-            err= solver.getUparErrors()[pindx]
-            name= solver.getUparNames()[pindx]
-        elif ptype == "m":
-            par= solver.getMpar()[pindx]
-            err= solver.getMparErrors()[pindx]
-            name= solver.getMparNames()[pindx]
-        else:
-            print "getUMPar: error, ptype not recognised:", ptype
-        return par, err, name
-    par1, err1, name1= getUMParErrName( ipar1, type1 )
-    par2, err2, name2= getUMParErrName( ipar2, type2 )
-    print "\nContour plot " + name1 + " - " + name2 + ":"
-    global te1, te2, te3, tg1, tg2, tg3, tmg
-    corr= solver.getCorrMatrix()
-    icorr1= ipar1
-    icorr2= ipar2
-    if type1 == "u" or type2 == "u":
-        nmpar= len(solver.getMpar())
-        if type1 == "u":
-            icorr1= nmpar + ipar1
-        if type2 == "u":
-            icorr2= nmpar + ipar2
-    rho= corr[icorr1,icorr2]
-    te1= _makeEllipse( par1, par2, err1, err2, rho )
-    te2= _makeEllipse( par1, par2, 2.0*err1, 2.0*err2, rho )
-    te3= _makeEllipse( par1, par2, 3.0*err1, 3.0*err2, rho )
-    vx1, vy1= solver.contour( ipar1, type1, ipar2, type2, delta=1.0 )
-    vx2, vy2= solver.contour( ipar1, type1, ipar2, type2, delta=4.0 )
-    vx3, vy3= solver.contour( ipar1, type1, ipar2, type2, delta=9.0 )
-    ax1= array( "d", vx1 )
-    ay1= array( "d", vy1 )
-    ax2= array( "d", vx2 )
-    ay2= array( "d", vy2 )
-    ax3= array( "d", vx3 )
-    ay3= array( "d", vy3 )
-    n= len( vx1 )
-    tg1= TGraph( n, ax1, ay1 )
-    tg2= TGraph( n, ax2, ay2 )
-    tg3= TGraph( n, ax3, ay3 )
-    tg1.SetMarkerStyle( 20 )
-    tg2.SetMarkerStyle( 20 )
-    tg3.SetMarkerStyle( 20 )
-    tmg= TMultiGraph()
-    tmg.Add( tg1 )
-    tmg.Add( tg2 )
-    tmg.Add( tg3 )
-    tmg.Draw( "ap" )
-    xa= tmg.GetXaxis()
-    ya= tmg.GetYaxis()
-    xa.SetTitle( name1 )
-    ya.SetTitle( name2 )
-    te1.Draw( "s" )
-    te2.Draw( "s" )
-    te3.Draw( "s" )
+        for ipar in range( len(solver.getMpars()) ):
+            _doMinos( solver, ipar, "m" )
     return
 
 
