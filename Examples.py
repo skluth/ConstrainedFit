@@ -69,7 +69,9 @@ def Branchingratios( opt="m" ):
     if "corr" in opt:
         lcov= True
         lcorr= True
-    solver.printResults( cov=lcov, corr=lcorr )
+
+    ca= clsq.clsqAnalysis( solver )
+    ca.printResults( cov=lcov, corr=lcorr )
 
     if "m" in opt:
         _doMinosAll( solver, "u" )
@@ -105,7 +107,8 @@ def LinearFit():
     print "Constraints before solution"
     print solver.getConstraints()
     solver.solve()
-    solver.printResults()
+    ca= clsq.clsqAnalysis( solver )
+    ca.printResults()
 
     return
 
@@ -160,7 +163,9 @@ def PoissonLikelihood( opt="" ):
     if "c" in opt:
         lCorr= True
     solver.solve( lBlobel=lBlobel, lpr=lPrint )
-    solver.printResults( corr=lCorr )
+
+    ca= clsq.clsqAnalysis( solver )
+    ca.printResults( corr=lCorr )
 
     return
 
@@ -215,7 +220,8 @@ def GaussLikelihood( opt="" ):
     print "Constraints before solution"
     print solver.getConstraints()
     solver.solve( lBlobel=lBlobel, lpr=lPrint )
-    solver.printResults( corr=lCorr )
+    ca= clsq.clsqAnalysis( solver )
+    ca.printResults( corr=lCorr )
 
     # Solution using constrained least squares:
     print "\nLeast squares constrained fit"
@@ -224,7 +230,8 @@ def GaussLikelihood( opt="" ):
     print "Constraints before solution"
     print solver.getConstraints()
     solver.solve( lBlobel=lBlobel, lpr=lPrint )
-    solver.printResults( corr=lCorr )
+    ca= clsq.clsqAnalysis( solver )
+    ca.printResults( corr=lCorr )
 
     return
 
@@ -284,17 +291,21 @@ def StraightLine( opt="" ):
     if "corr" in opt:
         lCorr= True
     solver.solve( lBlobel=lBlobel )
-    solver.printResults( corr=lCorr )
+    ca= clsq.clsqAnalysis( solver )
+    ca.printResults( corr=lCorr )
+
     if "m" in opt:
-        _doMinos( solver, "u" )
+        _doMinosAll( solver, "u" )
+
+    global tg, lell, tf, tt, canvc, canvp
+    from ROOT import TGraph, TF1, TText, TCanvas
+
     if "cont" in opt:
+        canvc= TCanvas( "canv", "Chi^2 Contours", 600, 600 )
         _doProfile2d( solver, ipar1=0, type1="u", ipar2=1, type2="u" )
 
-    return
 
     # Plot:
-    global tg, lell, tf, tt
-    from ROOT import TGraph, TF1, TText
     from array import array
     xarr= array( "f", xdata )
     yarr= array( "f", ydata )
@@ -307,13 +318,14 @@ def StraightLine( opt="" ):
     ya= tg.GetYaxis()
     xa.SetTitle( "X" )
     ya.SetTitle( "Y" )
+    canvp= TCanvas( "canp", "Straight line 2D fit", 600, 400 )
     tg.Draw( "ap" )
     lell= []
     for i in range( npoints ):
         te= _makeEllipse( xdata[i], ydata[i], xerrs[i], yerrs[i], xyrho[i] )
         lell.append( te )
         te.Draw( "s" )
-    solution= solver.getUpar()
+    solution= solver.getUpars()
     tf= TF1( "tf", "[0]+[1]*x", 0.0, 15.0 )
     for i in range( len(upar) ):
         tf.SetParameter( i, solution[i] )
@@ -374,7 +386,8 @@ def Triangle( opt="" ):
     if "corr" in opt:
         lCorr= True
     solver.solve( lBlobel=lBlobel )
-    solver.printResults( corr=lCorr )
+    ca= clsq.clsqAnalysis( solver )
+    ca.printResults( corr=lCorr )
 
     if "m" in opt:
         _doMinosAll( solver )
@@ -383,7 +396,8 @@ def Triangle( opt="" ):
         _doProfile2d( solver, ipar1=0, type1="u", ipar2=1, type2="m" )
 
     print "Profile A"
-    results= clsq.profile( solver, 0, "u" )
+    par= clsq.createClsqPar( 0, "u", solver )
+    results= ca.profile( par )
     print results
 
     return solver
@@ -394,8 +408,10 @@ def _doProfile2d( solver, ipar1=0, type1="u", ipar2=1, type2= "m" ):
     from ROOT import TGraph2D, TMarker
     from array import array
     global tg2d, hist, te1, te2, te3, tm
-    par1, err1, name1= _getUMParErrName( solver, ipar1, type1 )
-    par2, err2, name2= _getUMParErrName( solver, ipar2, type2 )
+    par1= clsq.createClsqPar( ipar1, type1, solver )
+    par2= clsq.createClsqPar( ipar2, type2, solver )
+    parval1, parerr1, name1= _getUMParErrName( par1 )
+    parval2, parerr2, name2= _getUMParErrName( par2 )
     print "\nChi^2 profile plot " + name1 + " - " + name2 + ":"
     corr= solver.getCorrMatrix()
     icorr1= ipar1
@@ -407,13 +423,11 @@ def _doProfile2d( solver, ipar1=0, type1="u", ipar2=1, type2= "m" ):
         if type2 == "u":
             icorr2= nmpar + ipar2
     rho= corr[icorr1,icorr2]
-    te1= _makeEllipse( par1, par2, err1, err2, rho )
-    te2= _makeEllipse( par1, par2, 2.0*err1, 2.0*err2, rho )
-    te3= _makeEllipse( par1, par2, 3.0*err1, 3.0*err2, rho )
-
-    # points= solver.profile2d( ipar1, type1, ipar2, type2 )
-    points= clsq.profile2d( solver, ipar1, type1, ipar2, type2 )
-
+    te1= _makeEllipse( parval1, parval2, parerr1, parerr2, rho )
+    te2= _makeEllipse( parval1, parval2, 2.0*parerr1, 2.0*parerr2, rho )
+    te3= _makeEllipse( parval1, parval2, 3.0*parerr1, 3.0*parerr2, rho )
+    ca= clsq.clsqAnalysis( solver )
+    points= ca.profile2d( par1, par2 )
     npoints= len(points)
     tg2d= TGraph2D( npoints )
     for i in range( npoints ):
@@ -427,7 +441,7 @@ def _doProfile2d( solver, ipar1=0, type1="u", ipar2=1, type2= "m" ):
     xa.SetTitle( name1 )
     ya.SetTitle( name2 )
     hist.Draw( "cont1" )
-    tm= TMarker( par1, par2, 20 )
+    tm= TMarker( parval1, parval2, 20 )
     tm.Draw( "s" )
     te1.Draw( "s" )
     te2.Draw( "s" )
@@ -435,19 +449,20 @@ def _doProfile2d( solver, ipar1=0, type1="u", ipar2=1, type2= "m" ):
     return
 
 
-def _getUMParErrName( solver, pindx, ptype ):
-    from ConstrainedFit import clsq
-    par= clsq.getPar( solver, pindx, ptype )
-    err= clsq.getErr( solver, pindx, ptype )
-    name= clsq.getParName( solver, pindx, ptype )
+def _getUMParErrName( cpar ):
+    par= cpar.getParVal()
+    err= cpar.getParErr()
+    name= cpar.getParName()
     return par, err, name
 
 
 def _doMinos( solver, ipar=0, ptype="u" ):
     from ConstrainedFit import clsq
-    result= clsq.getPar( solver, ipar, ptype )
-    name= clsq.getParName( solver, ipar, ptype )
-    errhi, errlo= clsq.minos( solver, ipar, ptype )
+    par= clsq.createClsqPar( ipar, ptype, solver )
+    result= par.getParVal()
+    name= par.getParName()
+    ca= clsq.clsqAnalysis( solver )
+    errhi, errlo= ca.minos( par )
     fmtstr= "{0:>10s}: {1:10.4f} + {2:6.4f} - {3:6.4f}"
     print fmtstr.format( name, result, errhi, abs(errlo) )
 def _doMinosAll( solver, opt="um" ):

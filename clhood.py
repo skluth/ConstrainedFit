@@ -14,7 +14,8 @@ class clhoodSolver( clsqSolver ):
     def __init__( self, data, upar, lhoodfun, constraintfunction, 
                   largs=(), cargs=(), epsilon=0.0001,
                   maxiter=100, deltachisq=0.0001,
-                  mparnames=None, uparnames=None ):
+                  mparnames=None, uparnames=None,
+                  title= "Constrained maximum likelihood" ):
         clsqSolver.__init__( self, data, None, upar,
                              constraintfunction, cargs, epsilon,
                              maxiter, deltachisq,
@@ -54,15 +55,18 @@ class clhoodSolver( clsqSolver ):
         return self.__invm
 
     # Overrides for printing:
-    def printTitle( self ):
-        print  "\nConstrained maximum likelihood"
-        return
-    def printFitParameters( self, chisq, ndof, ffmt ):
-        fmtstr= "\nLikelihood= {0:"+ffmt+"}"
-        print fmtstr.format( self.__lhood.value( self.__mparv ) )
-        clsqSolver.printFitParameters( self, chisq, ndof, ffmt )
-        return
-
+    # def printTitle( self ):
+    #     print  "\nConstrained maximum likelihood"
+    #     return
+    # def printFitParameters( self, chisq, ndof, ffmt ):
+    #     fmtstr= "\nLikelihood= {0:"+ffmt+"}"
+    #     print fmtstr.format( self.__lhood.value( self.__mparv ) )
+    #     clsqSolver.printFitParameters( self, chisq, ndof, ffmt )
+    #     return
+    def getFitStats( self ):
+        result= clsqSolver.getFitStats( self )
+        result.update( { "lhood": self.__lhood.value( self.__mparv ) } ) 
+        return result
 
 # Class contains likelihood specific calculations:
 class Likelihood:

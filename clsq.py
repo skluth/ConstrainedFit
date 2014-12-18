@@ -32,7 +32,7 @@ class clsqSolver:
                   constraintfunction, args=(), epsilon=0.0001,
                   maxiter= 100, deltachisq=0.0001,
                   mparnames=None, uparnames=None,
-                  ndof=None ):
+                  ndof=None, title="Constrained least squares CLSQ" ):
         self.__constraints= Constraints( constraintfunction, args, epsilon )
         self.__datav= columnMatrixFromList( data )
         self.__mparv= self.__datav.copy()
@@ -52,6 +52,8 @@ class clsqSolver:
             self.__ndof= ndof
         self.__fixedUparFunctions= {}
         self.__fixedMparFunctions= {}
+        self.__title= title
+        self.lBlobel= None
         return
 
     # Set parameter names to default or from user input:
@@ -216,104 +218,8 @@ class clsqSolver:
     def getNdof( self ):
         return self.__ndof
 
-    # Print information on parameters:
-    def __printPars( self, par, parerrs, parnames, fixedParFunctions,
-                     ffmt=".4f", pulls=None ):
-        for ipar in range(len(par)):
-            name= parnames[ipar]
-            print "{0:>15s}:".format( name ),
-            fmtstr= "{0:10"+ffmt+"} +/- {1:10"+ffmt+"}"
-            print fmtstr.format( par[ipar], parerrs[ipar] ),
-            if pulls:
-                fmtstr= "{0:10"+ffmt+"}"
-                print fmtstr.format( pulls[ipar] ),
-            if ipar in fixedParFunctions:
-                print "(fixed)",
-            print
-        return
-
-    def printTitle( self ):
-        print "\nConstrained least squares CLSQ"
-        return
-
-    # Print fit chi^2 information:
-    def printFitParameters( self, chisq, ndof, ffmt ):
-        fmtstr= "\nChi^2= {0:"+ffmt+"} for {1:d} d.o.f, Chi^2/d.o.f= {2:"+ffmt+"}, P-value= {3:"+ffmt+"}"
-        print fmtstr.format( chisq, ndof, chisq/float(ndof), 
-                             chisqprob( chisq, ndof ) )
-        return
-
-    # Print fit summary:
-    def printResults( self, ffmt=".4f", cov=False, corr=False ):
-        self.printTitle()
-        print "\nResults after fit",
-        if self.__lBlobel:
-            print "using solution by partition:"
-        else:
-            print "using solution by inversion:"
-        print "\nIterations:", self.__niterations
-        print "\nConstraints:"
-        constraints= self.getConstraints()
-        for constraint in constraints:
-            fmtstr= "{0:.6f}"
-            print fmtstr.format( constraint ),
-        print
-        ndof= self.getNdof()
-        chisq= self.getChisq()
-        self.printFitParameters( chisq, ndof, ffmt )
-        print "\nUnmeasured parameters and errors:"
-        print "           Name       Value          Error"
-        upar= self.getUpars()
-        self.__printPars( upar, self.getUparErrors(), 
-                          self.__uparnames, self.__fixedUparFunctions,
-                          ffmt=ffmt )
-        set_printoptions( linewidth=132, precision=4 )
-        if len(upar) > 1:
-            if cov:
-                print "\nCovariance matrix:"
-                self.__printMatrix( self.getUparErrorMatrix(), ".3e", 
-                                    self.__uparnames )
-            if corr:
-                print "\nCorrelation matrix:"
-                self.__printMatrix( self.getUparCorrMatrix(), ".3f",
-                                    self.__uparnames )
-        print "\nMeasured parameters:"
-        print "           Name       Value          Error       Pull"
-        mpar= self.getMpars()
-        self.__printPars( mpar, self.getMparErrors(), 
-                          self.__mparnames, self.__fixedMparFunctions,
-                          ffmt=ffmt, 
-                          pulls=self.getMparPulls() )
-        if len(mpar) > 1:
-            if cov:
-                print "\nCovariance matrix:"
-                self.__printMatrix( self.getMparErrorMatrix(), ".3e", 
-                                    self.__mparnames )
-            if corr:
-                print "\nCorrelation matrix:"
-                self.__printMatrix( self.getMparCorrMatrix(), ".3f", 
-                                    self.__mparnames )
-        if corr:
-            print "\nTotal correlations unmeasured and measured parameters:"
-            self.__printMatrix( self.getCorrMatrix(), ".3f", 
-                                self.__mparnames+self.__uparnames )
-        set_printoptions()
-        return
-
-    # Print a matrix formatted:
-    def __printMatrix( self, m, ffmt, names ):
-        mshape= m.shape
-        print "{0:10s}".format( "" ),
-        for i in range(mshape[0]):
-            print "{0:>10s}".format( names[i] ),
-        print
-        for i in range(mshape[0]):
-            print "{0:>10s}".format( names[i] ),
-            for j in range(mshape[1]):
-                fmtstr= "{0:10"+ffmt+"}"
-                print fmtstr.format( m[i,j] ),
-            print
-        return
+    def getFitStats( self ):
+        return { "chisq": self.getChisq(), "ndof": self.getNdof() }
     
     # Get constraint values as list:
     def getConstraints( self ):
@@ -322,6 +228,11 @@ class clsqSolver:
         return lconstr
 
     # Accessors for unmeasured and measured parameters and errors after fit:
+    "\nConstrained least squares CLSQ"
+    def isBlobel( self ):
+        return self.__lBlobel
+    def getTitle( self ):
+        return self.__title
     def getPars( self ):
         return self.getUpars()+self.getMpars()
     def getParErrors( self ):
@@ -406,24 +317,13 @@ class clsqSolver:
     def getDatav( self ):
         return self.__datav
 
-    # Calculate pulls for measured parameters a la Blobel
-    # from errors on Deltax = "measured parameter - data"
-    def getMparPulls( self ):
-        covm= self.getCovm()
-        mpar= self.getMpars()
-        data= self.getData()
-        errors= self.getMparErrors()
-        for i in range( len(errors) ):
-            errors[i]= sqrt( covm[i,i] - errors[i]**2 )
-        pulls= []
-        for datum, mparval, error in zip( data, mpar, errors ):
-            pull= mparval - datum
-            if error > 1.0e-7:
-                pull/= error
-#            else:
-#                print "getMparPulls: Warning: error < 1e-7"
-            pulls.append( pull )
-        return pulls
+    def getNIterations( self ):
+        return self.__niterations
+    def getFixedUparFunctions( self ):
+        return self.__fixedUparFunctions
+    def getFixedMparFunctions( self ):
+        return self.__fixedMparFunctions
+
 
     # Fix or release parameters:
     def fixUpar( self, parspec, val=None, lpr=True ):
@@ -475,8 +375,7 @@ class clsqSolver:
         print "Set measured parameter", self.__mparnames[ipar], "to", val
         return
 
-    # Helper method to find global index of a parameter corresponding to
-    # solution vector (unmeasured and measured parameters) given index or name:
+    # Helper method to find index of a parameter given index or name:
     def __parameterIndex( self, parspec, parnames ):
         if isinstance( parspec, int ):
             ipar= parspec
@@ -578,130 +477,290 @@ def fivePointStencil( function, varpar, h, fixpar ):
               + function( varpar - 2.0*h, fixpar ) )/( 12.0*h.sum() )
     return dfdp
 
+
+
 # Tools for post-mortem analysis:
-def getPar( solver, ipar, ptype ):
+
+# Class hierarchy to handle unmeasured and measured parameters:
+class clsqPar:
+    def __init__( self, ipar, solver ):
+        self._ipar= ipar
+        self._solver= solver
+        return
+    def getParVal( self ):
+        raise NotImplementedError( "clsqPar.getParVal" )
+        return None
+    def getParErr( self ):
+        raise NotImplementedError( "clsqPar.getParErr" )
+        return None
+    def getParName( self ):
+        raise NotImplementedError( "clsqPar.getParName" )
+        return None
+    def fixPar( self, val=None, lpr=True ):
+        raise NotImplementedError( "clsqPar.fixPar" )
+        return
+    def releasePar( self, solver, lpr=True ):
+        raise NotImplementedError( "clsqPar.releasePar" )
+        return
+class clsqUPar( clsqPar ):
+    def __init__( self, ipar, solver ):
+        clsqPar.__init__( self, ipar, solver )
+        return
+    def getParVal( self ):
+        return self._solver.getUpars()[self._ipar]
+    def getParErr( self ):
+        return self._solver.getUparErrors()[self._ipar]
+    def getParName( self ):
+        return self._solver.getUparNames()[self._ipar]
+    def fixPar( self, val=None, lpr=True ):
+        self._solver.fixUpar( self._ipar, val, lpr )
+        return
+    def releasePar( self, lpr=True ):
+        self._solver.releaseUpar( self._ipar, lpr )
+        return
+class clsqMPar( clsqPar ):
+    def __init__( self, ipar, solver ):
+        clsqPar.__init__( self, ipar, solver )
+        return
+    def getParVal( self  ):
+        return self._solver.getMpars()[self._ipar]
+    def getParErr( self ):
+        return self._solver.getMparErrors()[self._ipar]
+    def getParName( self ):
+        return self._solver.getMparNames()[self._ipar]
+    def fixPar( self, val=None, lpr=True ):
+        self._solver.fixMpar( self._ipar, val, lpr )
+        return
+    def releasePar( self, lpr=True ):
+        self._solver.releaseMpar( self._ipar, lpr )
+        return
+def createClsqPar( ipar, ptype, solver ):
     result= None
     if ptype == "u":
-        result= solver.getUpars()[ipar]
+        result= clsqUPar( ipar, solver )
     elif ptype == "m":
-        result= solver.getMpars()[ipar]
+        result= clsqMPar( ipar, solver )
     else:
-        print "getPar: ptype not recognised:", ptype
+        raise NameError( "createClsqPar: ptype not recognised: "+ptype )
     return result
-def getErr( solver, ipar, ptype ):
-    error= None
-    if ptype == "u":
-        error= solver.getUparErrors()[ipar]
-    elif ptype == "m":
-        error= solver.getMparErrors()[ipar]
-    else:
-        print "getError: ptype not recognised:", ptype
-    return error
-def getParName( solver, ipar, ptype ):
-    name= None
-    if ptype == "u":
-        name= solver.getUparNames()[ipar]
-    elif ptype == "m":
-        name= solver.getMparNames()[ipar]
-    else:
-        print "getParName: ptype not recognised:", ptype
-    return name
-def fixPar( solver, ipar, ptype, val=None, lpr=True ):
-    if ptype == "u":
-        solver.fixUpar( ipar, val, lpr )
-    elif ptype == "m":
-        solver.fixMpar( ipar, val, lpr )
-    else:
-        print "fixPar: ptype not recognised:", ptype
-    return
-def releasePar( solver, ipar, ptype, lpr=True ):
-    if ptype == "u":
-        solver.releaseUpar( ipar, lpr )
-    elif ptype == "m":
-        solver.releaseMpar( ipar, lpr )
-    else:
-        print "releasePar: ptype not recognised:", ptype
-    return
-    
 
-# Profiling of unmeasured or measured parameters by fixing given
-# parameter and re-solving for a range of parameter values:
-def profile( solver, ipar, ptype, nstep=11, sigma=3.0 ):
-    value= getPar( solver, ipar, ptype )
-    error= getErr( solver, ipar, ptype )
-    steps= []
-    stepsize= 1.0/(nstep/2)
-    for istep in range( nstep ):
-        steps.append( (istep-nstep/2)*error*stepsize*sigma + value )
-    results= []
-    for step in steps:
-        fixPar( solver, ipar, ptype, step, lpr=False )
-        solver.solve()
-        results.append( ( step, solver.getChisq() ) )
-        releasePar( solver, ipar, ptype, lpr=False )
-    solver.solve()
-    return results
+class clsqAnalysis:
 
+    # Ctor:
+    def __init__( self, solver ):
+        self.__solver= solver
+        return
 
+    # Print fit summary:
+    def printResults( self, ffmt=".4f", cov=False, corr=False ):
+        print "\n" + self.__solver.getTitle()
+        print "\nResults after fit",
+        if self.__solver.isBlobel():
+            print "using solution by partition:"
+        else:
+            print "using solution by inversion:"
+        print "\nIterations:", self.__solver.getNIterations()
+        print "\nConstraints:"
+        constraints= self.__solver.getConstraints()
+        for constraint in constraints:
+            fmtstr= "{0:.6f}"
+            print fmtstr.format( constraint ),
+        print
 
-# Error calculation a la Minuits Minos algorithm, find for given 
-# parameter the values which solve Chi^2 = Chi^2_min+delta.  Technically,
-# the public methods pass the matching method references to the
-# private method containing the algorithm:
-def minos( solver, ipar, ptype, chisqmin=None, delta=1.0 ):
-    if chisqmin == None:
-        chisqmin= solver.getChisq()
-    result= getPar( solver, ipar, ptype )
-    error= getErr( solver, ipar, ptype )
-    def fun( x ):
-        fixPar( solver, ipar, ptype, x, lpr=False )
-        solver.solve()
-        deltachisq= solver.getChisq() - chisqmin
-        releasePar( solver, ipar, ptype, lpr=False )
-        return deltachisq - delta
-    a= result
-    b= result + (sqrt(delta)+1.0)*error
-    errhi= brentq( fun, a, b, xtol=1.0e-6, rtol=1.0e-6 )
-    a= result - (sqrt(delta)+1.0)*error
-    b= result
-    errlo= brentq( fun, a, b, xtol=1.0e-6, rtol=1.0e-6 )
-    solver.solve()
-    return errhi-result, errlo-result
+        fitstats= self.__solver.getFitStats()
+        # ndof= self.__solver.getNdof()
+        # chisq= self.__solver.getChisq()
+        if "lhood" in fitstats:
+            fmtstr= "\nLikelihood= {0:"+ffmt+"}"
+            print fmtstr.format( fitstats["lhood"] )
+        ndof= fitstats["ndof"]
+        chisq= fitstats["chisq"]
+        self.printFitParameters( chisq, ndof, ffmt )
 
-# 2D Chi^2 profile obtained by fixing both parameters on a grid
-# and re-solving at each point:
-def profile2d( solver, ipar1, type1, ipar2, type2, sigma=3.0, nstep=21, lDelta=True ):
-    values= []
-    errors= []
-    for ipar, ptype in ( (ipar1,type1), (ipar2,type2) ):
-        values.append( getPar( solver, ipar, ptype ) )
-        errors.append( getErr( solver, ipar, ptype ) )
-    steplists= []
-    stepsize= 1.0/(nstep/2)
-    for value, error in zip( values, errors ):
+        print "\nUnmeasured parameters and errors:"
+        print "           Name       Value          Error"
+        upar= self.__solver.getUpars()
+        self.__printPars( upar, self.__solver.getUparErrors(), 
+                          self.__solver.getUparNames(), 
+                          self.__solver.getFixedUparFunctions(),
+                          ffmt=ffmt )
+        set_printoptions( linewidth=132, precision=4 )
+        if len(upar) > 1:
+            if cov:
+                print "\nCovariance matrix:"
+                self.__printMatrix( self.__solver.getUparErrorMatrix(), ".3e", 
+                                    self.__solver.getUparNames() )
+            if corr:
+                print "\nCorrelation matrix:"
+                self.__printMatrix( self.__solver.getUparCorrMatrix(), ".3f",
+                                    self.__solver.getUparNames )
+        print "\nMeasured parameters:"
+        print "           Name       Value          Error       Pull"
+        mpar= self.__solver.getMpars()
+        self.__printPars( mpar, self.__solver.getMparErrors(), 
+                          self.__solver.getMparNames(), 
+                          self.__solver.getFixedMparFunctions(),
+                          ffmt=ffmt, 
+                          pulls=self.getMparPulls() )
+        if len(mpar) > 1:
+            if cov:
+                print "\nCovariance matrix:"
+                self.__printMatrix( self.__solver.getMparErrorMatrix(), ".3e", 
+                                    self.__solver.getMparNames() )
+            if corr:
+                print "\nCorrelation matrix:"
+                self.__printMatrix( self.__solver.getMparCorrMatrix(), ".3f", 
+                                    self.__solver.getMparNames() )
+        if corr:
+            print "\nTotal correlations unmeasured and measured parameters:"
+            self.__printMatrix( self.__solver.getCorrMatrix(), ".3f", 
+                                self.__solver.getMparNames()+self.__solver.getUparNames() )
+        set_printoptions()
+        return
+
+    # Print fit chi^2 information:
+    def printFitParameters( self, chisq, ndof, ffmt ):
+        fmtstr= "\nChi^2= {0:"+ffmt+"} for {1:d} d.o.f, Chi^2/d.o.f= {2:"+ffmt+"}, P-value= {3:"+ffmt+"}"
+        print fmtstr.format( chisq, ndof, chisq/float(ndof), 
+                             chisqprob( chisq, ndof ) )
+        return
+
+    # Print information on parameters:
+    def __printPars( self, par, parerrs, parnames, fixedParFunctions,
+                     ffmt=".4f", pulls=None ):
+        for ipar in range(len(par)):
+            name= parnames[ipar]
+            print "{0:>15s}:".format( name ),
+            fmtstr= "{0:10"+ffmt+"} +/- {1:10"+ffmt+"}"
+            print fmtstr.format( par[ipar], parerrs[ipar] ),
+            if pulls:
+                fmtstr= "{0:10"+ffmt+"}"
+                print fmtstr.format( pulls[ipar] ),
+            if ipar in fixedParFunctions:
+                print "(fixed)",
+            print
+        return
+
+    # Print a matrix formatted:
+    def __printMatrix( self, m, ffmt, names ):
+        mshape= m.shape
+        print "{0:10s}".format( "" ),
+        for i in range(mshape[0]):
+            print "{0:>10s}".format( names[i] ),
+        print
+        for i in range(mshape[0]):
+            print "{0:>10s}".format( names[i] ),
+            for j in range(mshape[1]):
+                fmtstr= "{0:10"+ffmt+"}"
+                print fmtstr.format( m[i,j] ),
+            print
+        return
+
+    # Calculate pulls for measured parameters a la Blobel
+    # from errors on Deltax = "measured parameter - data"
+    def getMparPulls( self ):
+        covm= self.__solver.getCovm()
+        mpar= self.__solver.getMpars()
+        data= self.__solver.getData()
+        errors= self.__solver.getMparErrors()
+        for i in range( len(errors) ):
+            errors[i]= sqrt( covm[i,i] - errors[i]**2 )
+        pulls= []
+        for datum, mparval, error in zip( data, mpar, errors ):
+            pull= mparval - datum
+            if error > 1.0e-7:
+                pull/= error
+#            else:
+#                print "getMparPulls: Warning: error < 1e-7"
+            pulls.append( pull )
+        return pulls
+
+    # Profiling of unmeasured or measured parameters by fixing given
+    # parameter and re-solving for a range of parameter values:
+    def profileIT( self, ipar, ptype, nstep=11, sigma=3.0 ):
+        par= createClsqPar( ipar, ptype, self.__solver )
+        return self.profile( par, nstep, sigma )
+    def profile( self, par, nstep=11, sigma=3.0 ):
+        value= par.getParVal()
+        error= par.getParErr()
         steps= []
+        stepsize= 1.0/(nstep/2)
         for istep in range( nstep ):
             steps.append( (istep-nstep/2)*error*stepsize*sigma + value )
-        steplists.append( steps )
-    resultlist= []
-    chisqmin= 0.0
-    if lDelta:
-        fixPar( solver, ipar1, type1, lpr=False )
-        fixPar( solver, ipar2, type2, lpr=False )
-        solver.solve()
-        chisqmin= solver.getChisq()
-        releasePar( solver, ipar1, type1, lpr=False )
-        releasePar( solver, ipar2, type2, lpr=False )
-    for step1 in steplists[0]:
-        fixPar( solver, ipar1, type1, step1, lpr=False )
         results= []
-        for step2 in steplists[1]:
-            fixPar( solver, ipar2, type2, step2, lpr=False )
-            solver.solve()
-            result= ( step1, step2, solver.getChisq() - chisqmin )
-            resultlist.append( result )
-            releasePar( solver, ipar2, type2, lpr=False )
-        releasePar( solver, ipar1, type1, lpr=False )
-    solver.solve()
-    return resultlist
+        for step in steps:
+            par.fixPar( step, lpr=False )
+            self.__solver.solve()
+            results.append( ( step, self.__solver.getChisq() ) )
+            par.releasePar( lpr=False )
+        self.__solver.solve()
+        return results
+
+    # Error calculation a la Minuits Minos algorithm, find for given 
+    # parameter the values which solve Chi^2 = Chi^2_min+delta.  Technically,
+    # the public methods pass the matching method references to the
+    # private method containing the algorithm:
+    def minosIT( self, ipar, ptype, chisqmin=None, delta=1.0 ):
+        par= createClsqPar( ipar, ptype, self.__solver )
+        return self.minos( par, chisqmin, delta )
+    def minos( self, par, chisqmin=None, delta=1.0 ):
+        if chisqmin == None:
+            chisqmin= self.__solver.getChisq()
+        result= par.getParVal()
+        error= par.getParErr()
+        def fun( x ):
+            par.fixPar( x, lpr=False )
+            self.__solver.solve()
+            deltachisq= self.__solver.getChisq() - chisqmin
+            par.releasePar( lpr=False )
+            return deltachisq - delta
+        a= result
+        b= result + (sqrt(delta)+1.0)*error
+        errhi= brentq( fun, a, b, xtol=1.0e-6, rtol=1.0e-6 )
+        a= result - (sqrt(delta)+1.0)*error
+        b= result
+        errlo= brentq( fun, a, b, xtol=1.0e-6, rtol=1.0e-6 )
+        self.__solver.solve()
+        return errhi-result, errlo-result
+
+    # 2D Chi^2 profile obtained by fixing both parameters on a grid
+    # and re-solving at each point:
+    def profile2dIT( self, ipar1, type1, ipar2, type2, sigma=3.0, nstep=21, lDelta=True ):
+        par1= createClsqPar( ipar1, type1, self.__solver )
+        par2= createClsqPar( ipar2, type2, self.__solver )
+        return self.profile2d( par1, par2, sigma, nstep, lDelta )
+    def profile2d( self, par1, par2, sigma=3.0, nstep=21, lDelta=True ):
+        values= []
+        errors= []
+        for par in ( par1, par2 ):
+            values.append( par.getParVal() )
+            errors.append( par.getParErr() )
+        steplists= []
+        stepsize= 1.0/(nstep/2)
+        for value, error in zip( values, errors ):
+            steps= []
+            for istep in range( nstep ):
+                steps.append( (istep-nstep/2)*error*stepsize*sigma + value )
+            steplists.append( steps )
+        resultlist= []
+        chisqmin= 0.0
+        if lDelta:
+            par1.fixPar( lpr=False )
+            par2.fixPar( lpr=False )
+            self.__solver.solve()
+            chisqmin= self.__solver.getChisq()
+            par1.releasePar( lpr=False )
+            par2.releasePar( lpr=False )
+        for step1 in steplists[0]:
+            par1.fixPar( step1, lpr=False )
+            results= []
+            for step2 in steplists[1]:
+                par2.fixPar( step2, lpr=False )
+                self.__solver.solve()
+                result= ( step1, step2, self.__solver.getChisq() - chisqmin )
+                resultlist.append( result )
+                par2.releasePar( lpr=False )
+            par1.releasePar( lpr=False )
+        self.__solver.solve()
+        return resultlist
 
