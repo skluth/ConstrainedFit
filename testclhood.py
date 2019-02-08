@@ -6,9 +6,6 @@
 import unittest
 
 from numpy import matrix
-from scipy.stats import norm
-from math import log
-
 from clsq import columnMatrixFromList
 
 import clhood
@@ -30,11 +27,12 @@ def linearConstrFun( mpar, upar, xv ):
     return constraints
 
 def lhoodfun( mpar, data, errors ):
+    from ROOT import TMath
     result= 0.0
     for datum, parval, error in zip( data, mpar, errors ):
-        parval= parval.item()
-#        result-= log( norm.pdf( datum, parval, error ) )
-        result+= 0.5*((datum-parval)/error)**2
+        result-= TMath.Log( TMath.Gaus( datum, parval, 
+                                        error, True ) )
+        # result+= 0.5*((datum-parval)/error)**2
     return result
 
 
@@ -62,13 +60,13 @@ class clhoodSolverTest( unittest.TestCase ):
         return
 
     def __checkSolution( self ):
-        mpars= self.__solver.getMpars()
-        upars= self.__solver.getUpars()
-        expectedmpars= [ 0.98, 2.0, 3.02, 4.04, 5.06 ]
-        for par, expectedpar in zip( mpars, expectedmpars ):
+        mpar= self.__solver.getMpar()
+        upar= self.__solver.getUpar()
+        expectedmpar= [ 0.98, 2.0, 3.02, 4.04, 5.06 ]
+        for par, expectedpar in zip( mpar, expectedmpar ):
             self.assertAlmostEqual( par, expectedpar )
-        expectedupars= [ -0.04, 1.02 ]
-        for par, expectedpar in zip( upars, expectedupars ):
+        expectedupar= [ -0.04, 1.02 ]
+        for par, expectedpar in zip( upar, expectedupar ):
             self.assertAlmostEqual( par, expectedpar )
         return
 
