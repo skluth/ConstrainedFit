@@ -308,7 +308,7 @@ class clsqSolver:
         return self.__covm
 
     def getInvm( self ):
-        if self.__invm == None:
+        if self.__invm is None:
             self.__invm= self.__covm.getI()
         return self.__invm
 
@@ -323,7 +323,6 @@ class clsqSolver:
         return self.__fixedUparFunctions
     def getFixedMparFunctions( self ):
         return self.__fixedMparFunctions
-
 
     # Fix or release parameters:
     def fixUpar( self, parspec, val=None, lpr=True ):
