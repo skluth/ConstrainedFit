@@ -46,7 +46,7 @@ class clsqSolver:
         self.__mparnames= self.__setParNames( mparnames, len(self.__mparv) )
         self.__maxiterations= maxiter
         self.__deltachisq= deltachisq
-        if ndof == None:
+        if ndof is None:
             self.__ndof= len(self.__datav) - len(self.__uparv)
         else:
             self.__ndof= ndof
@@ -250,7 +250,7 @@ class clsqSolver:
     def getMparNames( self ):
         return list( self.__mparnames )
     def getUparErrors( self ):
-        if self.__pminv == None:
+        if self.__pminv is None:
             self.__pminv= self.__pm.getI()
         datadim= self.__datav.shape[0]
         upardim= self.__uparv.shape[0]
@@ -259,7 +259,7 @@ class clsqSolver:
             errors.append( sqrt( abs(self.__pminv[i,i]) ) )
         return errors
     def getMparErrors( self ):
-        if self.__pminv == None:
+        if self.__pminv is None:
             self.__pminv= self.__pm.getI()
         datadim= self.__datav.shape[0]
         errors= []
@@ -267,18 +267,18 @@ class clsqSolver:
             errors.append( sqrt( abs(self.__pminv[i,i]) ) )
         return errors
     def getUparErrorMatrix( self ):
-        if self.__pminv == None:
+        if self.__pminv is None:
             self.__pminv= self.__pm.getI()
         datadim= self.__datav.shape[0]
         upardim= self.__uparv.shape[0]
         return self.__pminv[datadim:datadim+upardim,datadim:datadim+upardim]
     def getMparErrorMatrix( self ):
-        if self.__pminv == None:
+        if self.__pminv is None:
             self.__pminv= self.__pm.getI()
         datadim= self.__datav.shape[0]
         return self.__pminv[:datadim,:datadim]
     def getErrorMatrix( self ):
-        if self.__pminv == None:
+        if self.__pminv is None:
             self.__pminv= self.__pm.getI()
         datadim= self.__datav.shape[0]
         upardim= self.__uparv.shape[0]
@@ -327,7 +327,7 @@ class clsqSolver:
     # Fix or release parameters:
     def fixUpar( self, parspec, val=None, lpr=True ):
         ipar= self.__parameterIndex( parspec, self.__uparnames )
-        if val == None:
+        if val is None:
             val= self.__uparv[ipar].item()
         fixUparConstraint= funcobj( ipar, val, "u" )
         self.__fixedUparFunctions[ipar]= fixUparConstraint
@@ -345,7 +345,7 @@ class clsqSolver:
         return
     def fixMpar( self, parspec, val=None, lpr=True ):
         ipar= self.__parameterIndex( parspec, self.__mparnames )
-        if val == None:
+        if val is None:
             val= self.__mparv[ipar].item()
         fixMparConstraint= funcobj( ipar, val, "m" )
         self.__fixedMparFunctions[ipar]= fixMparConstraint
@@ -703,7 +703,7 @@ class clsqAnalysis:
         par= createClsqPar( ipar, ptype, self.__solver )
         return self.minos( par, chisqmin, delta )
     def minos( self, par, chisqmin=None, delta=1.0 ):
-        if chisqmin == None:
+        if chisqmin is None:
             chisqmin= self.__solver.getChisq()
         result= par.getParVal()
         error= par.getParErr()
