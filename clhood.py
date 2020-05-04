@@ -65,7 +65,8 @@ class clhoodSolver( clsqSolver ):
     #     return
     def getFitStats( self ):
         result= clsqSolver.getFitStats( self )
-        result.update( { "lhood": self.__lhood.value( self.__mparv ) } ) 
+        # result.update( { "lhood": self.__lhood.value( self.__mparv ) } ) 
+        result.update( { "lhood": float( self.__lhood.value( self.__mparv ) ) } ) 
         return result
 
 # Class contains likelihood specific calculations:

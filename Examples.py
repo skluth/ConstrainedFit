@@ -63,7 +63,11 @@ def Branchingratios( opt="m" ):
     lBlobel= False
     if "b" in opt:
         lBlobel= True
-    solver.solve( lBlobel=lBlobel )
+    lResidual= False
+    if "r" in opt:
+        lResidual= True
+    solver.solve( lBlobel=lBlobel, lResidual=lResidual )
+    # solver.solve2( lBlobel=lBlobel )
     lcov= False
     lcorr= False
     if "corr" in opt:
@@ -381,11 +385,14 @@ def Triangle( opt="" ):
     print solver.getConstraints()
     lBlobel= False
     lCorr= False
+    lResidual= False
     if "b" in opt:
         lBlobel= True
     if "corr" in opt:
         lCorr= True
-    solver.solve( lBlobel=lBlobel )
+    if "r" in opt:
+        lResidual= True
+    solver.solve( lBlobel=lBlobel, lResidual=lResidual )
     ca= clsq.clsqAnalysis( solver )
     ca.printResults( corr=lCorr )
 
