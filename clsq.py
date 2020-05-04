@@ -296,7 +296,6 @@ class clsqSolver:
         return lconstr
 
     # Accessors for unmeasured and measured parameters and errors after fit:
-    "\nConstrained least squares CLSQ"
     def isBlobel( self ):
         return self.__lBlobel
     def getTitle( self ):
