@@ -2,7 +2,7 @@
 # Blobels branching ratio example
 # See Blobels lecture Terascale School on data combination and limit setting
 # (DESY, Oct 2011)
-# Input data from attachment to school agenda brExample.txt
+# Input data from attachment to school agenda br.txt
 # S. Kluth 2012
 
 def Branchingratios( opt="m" ):
@@ -15,10 +15,11 @@ def Branchingratios( opt="m" ):
               0.15, 0.4, 0.16, 0.40, 0.45, 0.009, 5.0, 2.5 ]
     # Error scale factor a la Blobel lecture:
     if "e" in opt:
-        print "Apply scaling *2.8 of error[13]"
+        print( "Apply scaling *2.8 of error[13]" )
         errors[13]= errors[13]*2.8
     covm= clsq.covmFromErrors( errors )
 
+    # PDG values as start values, last number is 5.5%, not 0.55 as in br.txt
     upar= [ 0.33, 0.36, 0.16, 0.09, 0.055 ]
     upnames= { 0: "B1", 1: "B2", 2: "B3", 3: "B4", 4: "B5" }
 
@@ -58,8 +59,8 @@ def Branchingratios( opt="m" ):
 
     solver= clsq.clsqSolver( data, covm, upar, brConstrFun, epsilon=0.00001,
                              uparnames=upnames )
-    print "Constraints before solution"
-    print solver.getConstraints()
+    print( "Constraints before solution" )
+    print( solver.getConstraints() )
     lBlobel= False
     if "b" in opt:
         lBlobel= True
@@ -67,7 +68,6 @@ def Branchingratios( opt="m" ):
     if "r" in opt:
         lResidual= True
     solver.solve( lBlobel=lBlobel, lResidual=lResidual )
-    # solver.solve2( lBlobel=lBlobel )
     lcov= False
     lcorr= False
     if "corr" in opt:
@@ -108,8 +108,8 @@ def LinearFit():
 
     solver= clsq.clsqSolver( data, covm, upar, linearConstrFun, 
                              uparnames=upnames, args=(xabs,) )
-    print "Constraints before solution"
-    print solver.getConstraints()
+    print( "Constraints before solution" )
+    print( solver.getConstraints() )
     solver.solve()
     ca= clsq.clsqAnalysis( solver )
     ca.printResults()
@@ -118,16 +118,16 @@ def LinearFit():
 
 
 # Example showing a fit with poisson likelihood, see Blobels 
-# Terascale Analysis Center lecture 20 Jan 2010, pg. 33
+# Terascale Analysis Center lecture 04 Oct 2011, pg. 33
 
 def PoissonLikelihood( opt="" ):
     
     from ConstrainedFit import clhood
     from ConstrainedFit import clsq
     from scipy.special import gammaln
-    from scipy.stats import poisson, norm
+    from scipy.stats import poisson
     from math import log
-
+    
     # Data, two counts, errors not needed(!):
     data= [ 9.0, 16.0 ]
     # errors= [ 3.0, 4.0 ]
@@ -142,7 +142,7 @@ def PoissonLikelihood( opt="" ):
         result= 0.0
         for datum, parval in zip( data, mpar ):
             parval= parval.item()
-            result-= log( poisson.pmf( datum, parval ) )
+            result-= poisson.logpmf( datum, parval )
             # Calculated log(poisson):
             # result-= datum*log( parval ) - gammaln( datum+1.0 ) - parval
         return result
@@ -155,8 +155,8 @@ def PoissonLikelihood( opt="" ):
 
     solver= clhood.clhoodSolver( data, upar, lfun, constrFun, 
                                  uparnames=upnames, mparnames=mpnames )
-    print "Constraints before solution"
-    print solver.getConstraints()
+    print( "Constraints before solution" )
+    print( solver.getConstraints() )
     lBlobel=False
     lPrint= False
     lCorr= False
@@ -167,11 +167,32 @@ def PoissonLikelihood( opt="" ):
     if "c" in opt:
         lCorr= True
     solver.solve( lBlobel=lBlobel, lpr=lPrint )
-
     ca= clsq.clsqAnalysis( solver )
     ca.printResults( corr=lCorr )
 
+    # Minuit fit of the two count likelihood, corresponds
+    # to max L solution
+    from AverageTools import minuitSolver
+    def fcn( n, grad, fval, par, ipar ):
+        mu= par[0]
+        lsum= 0.0
+        for datum in data:
+            lsum-= poisson.logpmf( datum, mu )
+            # Calculated log(poisson):
+            # lsum-= datum*log( mu ) - gammaln( datum+1.0 ) - mu
+        fval[0]= lsum
+        return
+    par= [ 12.0 ]
+    parerr= [ 1.0 ]
+    parname= [ "mu" ]
+    ndof= 1
+    solver= minuitSolver.minuitSolver( fcn, par, parerr, parname, ndof )
+    solver.minuitCommand( "SET ERRDEF 0.5" )
+    solver.solve()
+    solver.printResults()
+
     return
+    
 
 # Linear fit with Gauss (normal) likelihood, and with clsq
 # for comparison, expect identical results:
@@ -219,20 +240,20 @@ def GaussLikelihood( opt="" ):
         lCorr= True
 
     # Solution using constrained log(likelihood) minimisation:
-    print "\nMax likelihood constrained fit"
+    print( "\nMax likelihood constrained fit" )
     solver= clhood.clhoodSolver( data, upar, lfun, constrFun, uparnames=upnames )
-    print "Constraints before solution"
-    print solver.getConstraints()
+    print( "Constraints before solution" )
+    print( solver.getConstraints() )
     solver.solve( lBlobel=lBlobel, lpr=lPrint )
     ca= clsq.clsqAnalysis( solver )
     ca.printResults( corr=lCorr )
 
     # Solution using constrained least squares:
-    print "\nLeast squares constrained fit"
+    print( "\nLeast squares constrained fit" )
     covm= clsq.covmFromErrors( errors )
     solver= clsq.clsqSolver( data, covm, upar, constrFun, uparnames=upnames )
-    print "Constraints before solution"
-    print solver.getConstraints()
+    print( "Constraints before solution" )
+    print( solver.getConstraints() )
     solver.solve( lBlobel=lBlobel, lpr=lPrint )
     ca= clsq.clsqAnalysis( solver )
     ca.printResults( corr=lCorr )
@@ -264,8 +285,8 @@ def StraightLine( opt="" ):
         covm[2*i:2*i+2,2*i:2*i+2]= subcovm
         data.append( xdata[i] )
         data.append( ydata[i] )
-    print covm
-    print data
+    print( covm )
+    print( data )
 
     # Fit parameters for straight line:
     upar= [ 1.0, 0.5 ]
@@ -286,8 +307,8 @@ def StraightLine( opt="" ):
     # Setup the solver and solve:
     solver= clsq.clsqSolver( data, covm, upar, straightlineConstraints,
                              uparnames=upnames )
-    print "Constraints before solution"
-    print solver.getConstraints()
+    print( "Constraints before solution" )
+    print( solver.getConstraints() )
     lBlobel= False
     lCorr= False
     if "b" in opt:
@@ -307,7 +328,6 @@ def StraightLine( opt="" ):
     if "cont" in opt:
         canvc= TCanvas( "canv", "Chi^2 Contours", 600, 600 )
         _doProfile2d( solver, ipar1=0, type1="u", ipar2=1, type2="u" )
-
 
     # Plot:
     from array import array
@@ -381,17 +401,18 @@ def Triangle( opt="" ):
 
     solver= clsq.clsqSolver( data, covm, upar, triangleConstrFun,
                              uparnames=upnames, mparnames=mpnames )
-    print "Constraints before solution"
-    print solver.getConstraints()
+
+    print( "Constraints before solution" )
+    print( solver.getConstraints() )
     lBlobel= False
     lCorr= False
-    lResidual= False
+    lResidual= True
     if "b" in opt:
         lBlobel= True
     if "corr" in opt:
         lCorr= True
     if "r" in opt:
-        lResidual= True
+        lResidual= False
     solver.solve( lBlobel=lBlobel, lResidual=lResidual )
     ca= clsq.clsqAnalysis( solver )
     ca.printResults( corr=lCorr )
@@ -402,24 +423,24 @@ def Triangle( opt="" ):
     if "cont" in opt:
         _doProfile2d( solver, ipar1=0, type1="u", ipar2=1, type2="m" )
 
-    print "Profile A"
+    print( "Profile A" )
     par= clsq.createClsqPar( 0, "u", solver )
     results= ca.profile( par )
-    print results
+    print( results )
 
     return solver
 
 
 def _doProfile2d( solver, ipar1=0, type1="u", ipar2=1, type2= "m" ):
     from ConstrainedFit import clsq
-    from ROOT import TGraph2D, TMarker
+    from ROOT import TGraph2D, TMarker, gPad
     from array import array
     global tg2d, hist, te1, te2, te3, tm
     par1= clsq.createClsqPar( ipar1, type1, solver )
     par2= clsq.createClsqPar( ipar2, type2, solver )
     parval1, parerr1, name1= _getUMParErrName( par1 )
     parval2, parerr2, name2= _getUMParErrName( par2 )
-    print "\nChi^2 profile plot " + name1 + " - " + name2 + ":"
+    print( "\nChi^2 profile plot " + name1 + " - " + name2 + ":" )
     corr= solver.getCorrMatrix()
     icorr1= ipar1
     icorr2= ipar2
@@ -443,16 +464,16 @@ def _doProfile2d( solver, ipar1=0, type1="u", ipar2=1, type2= "m" ):
     hist= tg2d.GetHistogram()
     contourlevels= array( "d", [ 1.0, 4.0, 9.0 ] )
     hist.SetContour( 3, contourlevels )     
-    xa= hist.GetXaxis()
-    ya= hist.GetYaxis()
-    xa.SetTitle( name1 )
-    ya.SetTitle( name2 )
+    hist.GetXaxis().SetTitle( name1 )
+    hist.GetYaxis().SetTitle( name2 )
+    hist.SetTitle( "Triangle fit "+name2+" vs "+name1 )
     hist.Draw( "cont1" )
     tm= TMarker( parval1, parval2, 20 )
     tm.Draw( "s" )
     te1.Draw( "s" )
     te2.Draw( "s" )
     te3.Draw( "s" )
+    gPad.Print( "triangle_errorellipse.png" )
     return
 
 
@@ -471,9 +492,9 @@ def _doMinos( solver, ipar=0, ptype="u" ):
     ca= clsq.clsqAnalysis( solver )
     errhi, errlo= ca.minos( par )
     fmtstr= "{0:>10s}: {1:10.4f} + {2:6.4f} - {3:6.4f}"
-    print fmtstr.format( name, result, errhi, abs(errlo) )
+    print( fmtstr.format( name, result, errhi, abs(errlo) ) )
 def _doMinosAll( solver, opt="um" ):
-    print "\nMinos error profiling:"
+    print( "\nMinos error profiling:" )
     if "u" in opt:
         for ipar in range( len(solver.getUpars()) ):
             _doMinos( solver, ipar, "u" )
