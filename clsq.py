@@ -5,7 +5,7 @@
 
 from numpy import matrix, zeros, set_printoptions, linalg, delete
 from scipy.optimize import brentq
-from scipy.stats import chisqprob
+from scipy.stats import chi2
 from math import sqrt
 
 # Helper functions to prepare inputs:
@@ -82,20 +82,21 @@ class clsqSolver:
         self.__chisq= 0.0
         self.__niterations= 0
         if lpr:
-            print "Chi^2 before fit:", self.__chisq
+            print( "Chi^2 before fit:", self.__chisq )
         # Iterate clsq calculation until convergence or maximum:
         for iiter in range( self.__maxiterations ):
             self.__niterations+= 1
             if lpr:
-                print "iteration", iiter
+                print( "iteration", iiter )
                 if lBlobel:
-                    print "Solution by partition"
+                    print( "Solution by partition" )
                 else:
-                    print "Solution by inversion"
+                    print( "Solution by inversion" )
             # Calculate constraint derivatives and constraints:
             dcdmpm= self.__constraints.derivativeM( self.__mparv, self.__uparv )
             dcdupm= self.__constraints.derivativeU( self.__mparv, self.__uparv )
             constrv= - self.__constraints.calculate( self.__mparv, self.__uparv )
+            # Add residual correction
             if lResidual:
                 constrv+= ( dcdmpm*residuals[:datadim] +
                             dcdupm*residuals[datadim:datadim+upardim] )            
@@ -118,16 +119,18 @@ class clsqSolver:
                                                         constrv )            
             residuals= deltapar[:datadim+upardim]
             if lResidual:
+                # Parameters are start values + current value of residual
                 self.__mparv= mparv + residuals[:datadim]
                 self.__uparv= uparv + residuals[datadim:datadim+upardim]
             else:
+                # Add correction to resiudal to parameters"
                 self.__mparv+= residuals[:datadim]
                 self.__uparv+= residuals[datadim:datadim+upardim]
             # Check if chi^2 changed below threshold or maximum number of
             # iterations reached:
             chisqnew= self.calcChisq( dcdmpm, c33 )
             if lpr:
-                print "Chi^2=", chisqnew
+                print( "Chi^2=", chisqnew )
             if( abs(chisqnew-self.__chisq) < self.__deltachisq and
                 iiter > 0 ):
                 break
@@ -145,16 +148,16 @@ class clsqSolver:
         datadim= self.__datav.shape[0]
         upardim= self.__uparv.shape[0]
         if lpr:
-            print "Chi^2 before fit:", self.__chisq
+            print( "Chi^2 before fit:", self.__chisq )
         # Iterate clsq calculation until convergence or maximum:
         for iiter in range( self.__maxiterations ):
             self.__niterations+= 1
             if lpr:
-                print "iteration", iiter
+                print( "iteration", iiter )
                 if lBlobel:
-                    print "Solution by partition"
+                    print( "Solution by partition" )
                 else:
-                    print "Solution by inversion"
+                    print( "Solution by inversion" )
             # Calculate constraint derivatives and constraints:
             dcdmpm= self.__constraints.derivativeM( self.__mparv, self.__uparv )
             dcdupm= self.__constraints.derivativeU( self.__mparv, self.__uparv )
@@ -183,7 +186,7 @@ class clsqSolver:
             # iterations reached:
             chisqnew= self.calcChisq( dcdmpm, c33 )
             if lpr:
-                print "Chi^2=", chisqnew
+                print( "Chi^2=", chisqnew )
             if( abs(chisqnew-self.__chisq) < self.__deltachisq and
                 iiter > 0 ):
                 break
@@ -296,6 +299,7 @@ class clsqSolver:
         return lconstr
 
     # Accessors for unmeasured and measured parameters and errors after fit:
+    "\nConstrained least squares CLSQ"
     def isBlobel( self ):
         return self.__lBlobel
     def getTitle( self ):
@@ -400,7 +404,8 @@ class clsqSolver:
         self.__fixedUparFunctions[ipar]= fixUparConstraint
         self.__constraints.addConstraint( fixUparConstraint )
         if lpr:
-            print "Fixed unmeasured parameter", self.__uparnames[ipar], "to", val
+            print( "Fixed unmeasured parameter", self.__uparnames[ipar],
+                   "to", val )
         return
     def releaseUpar( self, parspec, lpr=True ):
         ipar= self.__parameterIndex( parspec, self.__uparnames )
@@ -408,7 +413,7 @@ class clsqSolver:
         self.__constraints.removeConstraint( fixUparConstraint )
         del self.__fixedUparFunctions[ipar]
         if lpr:
-            print "Released unmeasured parameter", self.__uparnames[ipar]
+            print( "Released unmeasured parameter", self.__uparnames[ipar] )
         return
     def fixMpar( self, parspec, val=None, lpr=True ):
         ipar= self.__parameterIndex( parspec, self.__mparnames )
@@ -418,7 +423,8 @@ class clsqSolver:
         self.__fixedMparFunctions[ipar]= fixMparConstraint
         self.__constraints.addConstraint( fixMparConstraint )
         if lpr:
-            print "Fixed measured parameter", self.__mparnames[ipar], "to", val
+            print( "Fixed measured parameter", self.__mparnames[ipar],
+                   "to", val )
         return
     def releaseMpar( self, parspec, lpr=True ):
         ipar= self.__parameterIndex( parspec, self.__mparnames )
@@ -426,19 +432,19 @@ class clsqSolver:
         self.__constraints.removeConstraint( fixMparConstraint )
         del self.__fixedMparFunctions[ipar]
         if lpr:
-            print "Released measured parameter", self.__mparnames[ipar]
+            print( "Released measured parameter", self.__mparnames[ipar] )
         return
 
     # Set a value for unmeasured or measured parameter:
     def setUpar( self, parspec, val ):
         ipar= self.__parameterIndex( parspec, self.__uparnames )
         self.__uparv[ipar]= val
-        print "Set unmeasured parameter", self.__uparnames[ipar], "to", val
+        print( "Set unmeasured parameter", self.__uparnames[ipar], "to", val )
         return
     def setMpar( self, parspec, val ):
         ipar= self.__parameterIndex( parspec, self.__mparnames )
         self.__mparv[ipar]= val
-        print "Set measured parameter", self.__mparnames[ipar], "to", val
+        print( "Set measured parameter", self.__mparnames[ipar], "to", val )
         return
 
     # Helper method to find index of a parameter given index or name:
@@ -619,18 +625,18 @@ class clsqAnalysis:
 
     # Print fit summary:
     def printResults( self, ffmt=".4f", cov=False, corr=False ):
-        print "\n" + self.__solver.getTitle()
-        print "\nResults after fit",
+        print( "\n" + self.__solver.getTitle() )
+        print( "\nResults after fit", end=" " )
         if self.__solver.isBlobel():
-            print "using solution by partition:"
+            print( "using solution by partition:" )
         else:
-            print "using solution by inversion:"
-        print "\nIterations:", self.__solver.getNIterations()
-        print "\nConstraints:"
+            print( "using solution by inversion:" )
+        print( "\nIterations:", self.__solver.getNIterations() )
+        print( "\nConstraints:" )
         constraints= self.__solver.getConstraints()
         for constraint in constraints:
             fmtstr= "{0:.6f}"
-            print fmtstr.format( constraint ),
+            print( fmtstr.format( constraint ), end=" " )
         print
 
         fitstats= self.__solver.getFitStats()
@@ -638,13 +644,13 @@ class clsqAnalysis:
         # chisq= self.__solver.getChisq()
         if "lhood" in fitstats:
             fmtstr= "\nLikelihood= {0:"+ffmt+"}"
-            print fmtstr.format( fitstats["lhood"] )
+            print( fmtstr.format( fitstats["lhood"] ) )
         ndof= fitstats["ndof"]
         chisq= fitstats["chisq"]
         self.printFitParameters( chisq, ndof, ffmt )
 
-        print "\nUnmeasured parameters and errors:"
-        print "           Name       Value          Error"
+        print( "\nUnmeasured parameters and errors:" )
+        print( "           Name       Value          Error" )
         upar= self.__solver.getUpars()
         self.__printPars( upar, self.__solver.getUparErrors(), 
                           self.__solver.getUparNames(), 
@@ -653,15 +659,15 @@ class clsqAnalysis:
         set_printoptions( linewidth=132, precision=4 )
         if len(upar) > 1:
             if cov:
-                print "\nCovariance matrix:"
+                print( "\nCovariance matrix:" )
                 self.__printMatrix( self.__solver.getUparErrorMatrix(), ".3e", 
                                     self.__solver.getUparNames() )
             if corr:
-                print "\nCorrelation matrix:"
+                print( "\nCorrelation matrix:" )
                 self.__printMatrix( self.__solver.getUparCorrMatrix(), ".3f",
-                                    self.__solver.getUparNames )
-        print "\nMeasured parameters:"
-        print "           Name       Value          Error       Pull"
+                                    self.__solver.getUparNames() )
+        print( "\nMeasured parameters:" )
+        print( "           Name       Value          Error       Pull" )
         mpar= self.__solver.getMpars()
         self.__printPars( mpar, self.__solver.getMparErrors(), 
                           self.__solver.getMparNames(), 
@@ -670,15 +676,15 @@ class clsqAnalysis:
                           pulls=self.getMparPulls() )
         if len(mpar) > 1:
             if cov:
-                print "\nCovariance matrix:"
+                print( "\nCovariance matrix:" )
                 self.__printMatrix( self.__solver.getMparErrorMatrix(), ".3e", 
                                     self.__solver.getMparNames() )
             if corr:
-                print "\nCorrelation matrix:"
+                print( "\nCorrelation matrix:" )
                 self.__printMatrix( self.__solver.getMparCorrMatrix(), ".3f", 
                                     self.__solver.getMparNames() )
         if corr:
-            print "\nTotal correlations unmeasured and measured parameters:"
+            print( "\nTotal correlations unmeasured and measured parameters:" )
             self.__printMatrix( self.__solver.getCorrMatrix(), ".3f", 
                                 self.__solver.getMparNames()+self.__solver.getUparNames() )
         set_printoptions()
@@ -687,8 +693,8 @@ class clsqAnalysis:
     # Print fit chi^2 information:
     def printFitParameters( self, chisq, ndof, ffmt ):
         fmtstr= "\nChi^2= {0:"+ffmt+"} for {1:d} d.o.f, Chi^2/d.o.f= {2:"+ffmt+"}, P-value= {3:"+ffmt+"}"
-        print fmtstr.format( chisq, ndof, chisq/float(ndof), 
-                             chisqprob( chisq, ndof ) )
+        print( fmtstr.format( chisq, ndof, chisq/float(ndof), 
+                              chi2.sf( chisq, ndof ) ) )
         return
 
     # Print information on parameters:
@@ -696,30 +702,30 @@ class clsqAnalysis:
                      ffmt=".4f", pulls=None ):
         for ipar in range(len(par)):
             name= parnames[ipar]
-            print "{0:>15s}:".format( name ),
+            print( "{0:>15s}:".format( name ), end=" " )
             fmtstr= "{0:10"+ffmt+"} +/- {1:10"+ffmt+"}"
-            print fmtstr.format( par[ipar], parerrs[ipar] ),
+            print( fmtstr.format( par[ipar], parerrs[ipar] ), end=" " )
             if pulls:
                 fmtstr= "{0:10"+ffmt+"}"
-                print fmtstr.format( pulls[ipar] ),
+                print( fmtstr.format( pulls[ipar] ), end= " " )
             if ipar in fixedParFunctions:
-                print "(fixed)",
+                print( "(fixed)", end=" " )
             print
         return
 
     # Print a matrix formatted:
     def __printMatrix( self, m, ffmt, names ):
         mshape= m.shape
-        print "{0:10s}".format( "" ),
+        print( "{0:10s}".format( "" ), end= " " )
         for i in range(mshape[0]):
-            print "{0:>10s}".format( names[i] ),
-        print
+            print( "{0:>10s}".format( names[i] ), end=" " )
+        print()
         for i in range(mshape[0]):
-            print "{0:>10s}".format( names[i] ),
+            print( "{0:>10s}".format( names[i] ), end=" " )
             for j in range(mshape[1]):
                 fmtstr= "{0:10"+ffmt+"}"
-                print fmtstr.format( m[i,j] ),
-            print
+                print( fmtstr.format( m[i,j] ), end=" " )
+            print()
         return
 
     # Calculate pulls for measured parameters a la Blobel
@@ -736,8 +742,8 @@ class clsqAnalysis:
             pull= mparval - datum
             if error > 1.0e-7:
                 pull/= error
-#            else:
-#                print "getMparPulls: Warning: error < 1e-7"
+            else:
+                print( "getMparPulls: Warning: error < 1e-7" )
             pulls.append( pull )
         return pulls
 
