@@ -710,7 +710,7 @@ class clsqAnalysis:
                 print( fmtstr.format( pulls[ipar] ), end= " " )
             if ipar in fixedParFunctions:
                 print( "(fixed)", end=" " )
-            print
+            print()
         return
 
     # Print a matrix formatted:
