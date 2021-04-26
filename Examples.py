@@ -9,7 +9,7 @@ def Branchingratios( opt="m" ):
 
     from ConstrainedFit import clsq
 
-    data= [ 0.265, 0.28, 0.37, 0.166, 0.42, 0.5, 0.20, 0.16, 
+    data= [ 0.265, 0.28, 0.37, 0.166, 0.42, 0.5, 0.20, 0.16,
             0.72, 0.6, 0.37, 0.64, 0.45, 0.028, 10.0, 7.5 ]
     errors= [ 0.014, 0.05, 0.06, 0.013, 0.15, 0.2, 0.08, 0.08,
               0.15, 0.4, 0.16, 0.40, 0.45, 0.009, 5.0, 2.5 ]
@@ -35,23 +35,23 @@ def Branchingratios( opt="m" ):
         constraints.append( x[3]-x[5]*x[0] )
         constraints.append( x[3]-x[6]*x[0] )
         constraints.append( x[3]-x[7]*x[0] )
-        
+
         constraints.append( x[3]-(x[1]+x[2])*x[8] )
         constraints.append( x[3]-(x[1]+x[2])*x[9] )
         constraints.append( x[3]-(x[1]+x[2])*x[10] )
         constraints.append( x[3]-(x[1]+x[2])*x[11] )
         constraints.append( x[3]-(x[1]+x[2])*x[12] )
-        
+
         constraints.append( x[1]-(x[1]+x[2])*x[13] )
         constraints.append( x[1]-(x[1]+x[2])*x[14] )
-        
+
         constraints.append( x[0]-(x[1]+x[2])*x[15] )
         constraints.append( x[0]-(x[1]+x[2])*x[16] )
-        
+
         constraints.append( 3.0*x[4]-x[0]*x[17] )
-        
+
         constraints.append( x[3]-x[18] )
-        
+
         constraints.append( (x[1]+x[2])-x[4]*x[19] )
         constraints.append( (x[1]+x[2])-x[4]*x[20] )
 
@@ -106,7 +106,7 @@ def LinearFit():
             constraints.append( upar[0]+upar[1]*xval - mparval )
         return constraints
 
-    solver= clsq.clsqSolver( data, covm, upar, linearConstrFun, 
+    solver= clsq.clsqSolver( data, covm, upar, linearConstrFun,
                              uparnames=upnames, args=(xabs,) )
     print( "Constraints before solution" )
     print( solver.getConstraints() )
@@ -117,17 +117,17 @@ def LinearFit():
     return
 
 
-# Example showing a fit with poisson likelihood, see Blobels 
+# Example showing a fit with poisson likelihood, see Blobels
 # Terascale Analysis Center lecture 04 Oct 2011, pg. 33
 
 def PoissonLikelihood( opt="" ):
-    
+
     from ConstrainedFit import clhood
     from ConstrainedFit import clsq
     from scipy.special import gammaln
     from scipy.stats import poisson
     from math import log
-    
+
     # Data, two counts, errors not needed(!):
     data= [ 9.0, 16.0 ]
     # errors= [ 3.0, 4.0 ]
@@ -150,10 +150,10 @@ def PoissonLikelihood( opt="" ):
     # Constraints force poisson distribution with same parameter
     # for every data point:
     def constrFun( mpar, upar ):
-        return [ mpar[0] - upar[0], 
+        return [ mpar[0] - upar[0],
                  mpar[1] - upar[0] ]
 
-    solver= clhood.clhoodSolver( data, upar, lfun, constrFun, 
+    solver= clhood.clhoodSolver( data, upar, lfun, constrFun,
                                  uparnames=upnames, mparnames=mpnames )
     print( "Constraints before solution" )
     print( solver.getConstraints() )
@@ -180,7 +180,7 @@ def PoissonLikelihood( opt="" ):
             lsum-= poisson.logpmf( datum, mu )
             # Calculated log(poisson):
             # lsum-= datum*log( mu ) - gammaln( datum+1.0 ) - mu
-        fval[0]= lsum
+        fval.value= lsum
         return
     par= [ 12.0 ]
     parerr= [ 1.0 ]
@@ -192,7 +192,7 @@ def PoissonLikelihood( opt="" ):
     solver.printResults()
 
     return
-    
+
 
 # Linear fit with Gauss (normal) likelihood, and with clsq
 # for comparison, expect identical results:
@@ -260,7 +260,7 @@ def GaussLikelihood( opt="" ):
 
     return
 
-# Straight line fit to points with errors in x and y, example from 
+# Straight line fit to points with errors in x and y, example from
 # Blobels lecture pg 29 with values estimated from the plot
 # S Kluth 12.12.2014
 
@@ -280,7 +280,7 @@ def StraightLine( opt="" ):
     data= []
     npoints= len(xdata)
     for i in range( npoints ):
-        subcovm= matrix( [ [ xerrs[i]**2, xyrho[i]*xerrs[i]*yerrs[i] ], 
+        subcovm= matrix( [ [ xerrs[i]**2, xyrho[i]*xerrs[i]*yerrs[i] ],
                            [ xyrho[i]*xerrs[i]*yerrs[i], yerrs[i]**2 ] ] )
         covm[2*i:2*i+2,2*i:2*i+2]= subcovm
         data.append( xdata[i] )
@@ -299,7 +299,7 @@ def StraightLine( opt="" ):
     def straightlineConstraints( mpar, upar ):
         constraints= []
         for i in range( npoints ):
-            constraints.append( upar[0] + upar[1]*mpar[2*i] 
+            constraints.append( upar[0] + upar[1]*mpar[2*i]
                                 # + upar[2]*mpar[2*i]**2
                                 - mpar[2*i+1] )
         return constraints
@@ -361,8 +361,8 @@ def StraightLine( opt="" ):
     return
 
 
-# Blobels triangle example, see Blobels Terascale Analysis Center 
-# lecture 20 Jan 2010, pg. 11. Essentially, fit triangle area A 
+# Blobels triangle example, see Blobels Terascale Analysis Center
+# lecture 20 Jan 2010, pg. 11. Essentially, fit triangle area A
 # from measured sides a, b, c and angle gamma
 # a = 10 +/- 0.05
 # b =  7 +/- 0.2
@@ -463,7 +463,7 @@ def _doProfile2d( solver, ipar1=0, type1="u", ipar2=1, type2= "m" ):
         tg2d.SetPoint( i, point[0], point[1], point[2] )
     hist= tg2d.GetHistogram()
     contourlevels= array( "d", [ 1.0, 4.0, 9.0 ] )
-    hist.SetContour( 3, contourlevels )     
+    hist.SetContour( 3, contourlevels )
     hist.GetXaxis().SetTitle( name1 )
     hist.GetYaxis().SetTitle( name2 )
     hist.SetTitle( "Triangle fit "+name2+" vs "+name1 )
