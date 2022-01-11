@@ -261,7 +261,8 @@ def GaussLikelihood( opt="" ):
     return
 
 # Straight line fit to points with errors in x and y, example from
-# Blobels lecture pg 29 with values estimated from the plot
+# Blobels lecture TSTalk_Blobel.pdf pg 29 with values estimated from the plot
+# Derivation of 2D chi^2 see e.g. Botje 2013 https://www.nikhef.nl/~h24/bayes/topical2013.pdf
 # S Kluth 12.12.2014
 
 def StraightLine( opt="" ):
@@ -291,6 +292,7 @@ def StraightLine( opt="" ):
     # Fit parameters for straight line:
     upar= [ 1.0, 0.5 ]
     upnames= { 0: "a", 1: "b" }
+    # or parabola, see possible mpar[.]**2 term in constraints
     #upar= [ 0.0, 1.0, 1.0 ]
     #upnames= { 0: "a", 1: "b", 2: "c" }
 
