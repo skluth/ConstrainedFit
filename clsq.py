@@ -67,78 +67,78 @@ class clsqSolver:
             myparnames.append( parname )
         return myparnames
 
-    # Method to run clsq solver:
-    def solve( self, lpr=False, lBlobel=False, lResidual=True ):
-        self.__lBlobel= lBlobel
-        # If run again reset measured parameters to data values, chi^2
-        # and iteration counter:
-        self.__mparv= self.__datav.copy()        
-        mparv= self.__mparv
-        uparv= self.__uparv
-        datadim= self.__datav.shape[0]
-        upardim= self.__uparv.shape[0]
-        dim= datadim + upardim
-        residuals= matrix( zeros(shape=(dim,1)) )
-        self.__chisq= 0.0
-        self.__niterations= 0
-        if lpr:
-            print( "Chi^2 before fit:", self.__chisq )
-        # Iterate clsq calculation until convergence or maximum:
-        for iiter in range( self.__maxiterations ):
-            self.__niterations+= 1
-            if lpr:
-                print( "iteration", iiter )
-                if lBlobel:
-                    print( "Solution by partition" )
-                else:
-                    print( "Solution by inversion" )
-            # Calculate constraint derivatives and constraints:
-            dcdmpm= self.__constraints.derivativeM( self.__mparv, self.__uparv )
-            dcdupm= self.__constraints.derivativeU( self.__mparv, self.__uparv )
-            constrv= - self.__constraints.calculate( self.__mparv, self.__uparv )
-            # Add residual correction
-            if lResidual:
-                constrv+= ( dcdmpm*residuals[:datadim] +
-                            dcdupm*residuals[datadim:datadim+upardim] )            
-            # Solve problem:
-            cnstrdim= constrv.shape[0]
-            dim= datadim + upardim + cnstrdim
-            startpar= matrix( zeros(shape=(dim,1)) )
-            startpar[:datadim]= self.__mparv
-            startpar[datadim:datadim+upardim]= self.__uparv
-            # Choose one solution algorithm, result is difference (delta)
-            # w.r.t. startparameters and submatrix c33 w.r.t. measured parameters,
-            # then update parameters:
-            if not lBlobel:
-                deltapar, c33= self.__solveByInversion( dcdmpm, 
-                                                        dcdupm, 
-                                                        constrv )
-            else:
-                deltapar, c33= self.__solveByPartition( dcdmpm, 
-                                                        dcdupm, 
-                                                        constrv )            
-            residuals= deltapar[:datadim+upardim]
-            if lResidual:
-                # Parameters are start values + current value of residual
-                self.__mparv= mparv + residuals[:datadim]
-                self.__uparv= uparv + residuals[datadim:datadim+upardim]
-            else:
-                # Add correction to resiudal to parameters"
-                self.__mparv+= residuals[:datadim]
-                self.__uparv+= residuals[datadim:datadim+upardim]
-            # Check if chi^2 changed below threshold or maximum number of
-            # iterations reached:
-            chisqnew= self.calcChisq( dcdmpm, c33 )
-            if lpr:
-                print( "Chi^2=", chisqnew )
-            if( abs(chisqnew-self.__chisq) < self.__deltachisq and
-                iiter > 0 ):
-                break
-            self.__chisq= chisqnew
-        return
+    # # Method to run clsq solver:
+    # def solve2( self, lpr=False, lBlobel=False, lResidual=True ):
+    #     self.__lBlobel= lBlobel
+    #     # If run again reset measured parameters to data values, chi^2
+    #     # and iteration counter:
+    #     self.__mparv= self.__datav.copy()        
+    #     mparv= self.__mparv
+    #     uparv= self.__uparv
+    #     datadim= self.__datav.shape[0]
+    #     upardim= self.__uparv.shape[0]
+    #     dim= datadim + upardim
+    #     residuals= matrix( zeros(shape=(dim,1)) )
+    #     self.__chisq= 0.0
+    #     self.__niterations= 0
+    #     if lpr:
+    #         print( "Chi^2 before fit:", self.__chisq )
+    #     # Iterate clsq calculation until convergence or maximum:
+    #     for iiter in range( self.__maxiterations ):
+    #         self.__niterations+= 1
+    #         if lpr:
+    #             print( "iteration", iiter )
+    #             if lBlobel:
+    #                 print( "Solution by partition" )
+    #             else:
+    #                 print( "Solution by inversion" )
+    #         # Calculate constraint derivatives and constraints:
+    #         dcdmpm= self.__constraints.derivativeM( self.__mparv, self.__uparv )
+    #         dcdupm= self.__constraints.derivativeU( self.__mparv, self.__uparv )
+    #         constrv= - self.__constraints.calculate( self.__mparv, self.__uparv )
+    #         # Add residual correction
+    #         if lResidual:
+    #             constrv+= ( dcdmpm*residuals[:datadim] +
+    #                         dcdupm*residuals[datadim:datadim+upardim] )            
+    #         # Solve problem:
+    #         cnstrdim= constrv.shape[0]
+    #         dim= datadim + upardim + cnstrdim
+    #         startpar= matrix( zeros(shape=(dim,1)) )
+    #         startpar[:datadim]= self.__mparv
+    #         startpar[datadim:datadim+upardim]= self.__uparv
+    #         # Choose one solution algorithm, result is difference (delta)
+    #         # w.r.t. startparameters and submatrix c33 w.r.t. measured parameters,
+    #         # then update parameters:
+    #         if not lBlobel:
+    #             deltapar, c33= self.__solveByInversion( dcdmpm, 
+    #                                                     dcdupm, 
+    #                                                     constrv )
+    #         else:
+    #             deltapar, c33= self.__solveByPartition( dcdmpm, 
+    #                                                     dcdupm, 
+    #                                                     constrv )            
+    #         residuals= deltapar[:datadim+upardim]
+    #         if lResidual:
+    #             # Parameters are start values + current value of residual
+    #             self.__mparv= mparv + residuals[:datadim]
+    #             self.__uparv= uparv + residuals[datadim:datadim+upardim]
+    #         else:
+    #             # Add correction to resiudal to parameters"
+    #             self.__mparv+= residuals[:datadim]
+    #             self.__uparv+= residuals[datadim:datadim+upardim]
+    #         # Check if chi^2 changed below threshold or maximum number of
+    #         # iterations reached:
+    #         chisqnew= self.calcChisq( dcdmpm, c33 )
+    #         if lpr:
+    #             print( "Chi^2=", chisqnew )
+    #         if( abs(chisqnew-self.__chisq) < self.__deltachisq and
+    #             iiter > 0 ):
+    #             break
+    #         self.__chisq= chisqnew
+    #     return
 
     # Method to run clsq solver:
-    def solve2( self, lpr=False, lBlobel=False ):
+    def solve( self, lpr=False, lBlobel=False ):
         self.__lBlobel= lBlobel
         # If run again reset measured parameters to data values, chi^2
         # and iteration counter:
@@ -299,7 +299,6 @@ class clsqSolver:
         return lconstr
 
     # Accessors for unmeasured and measured parameters and errors after fit:
-    "\nConstrained least squares CLSQ"
     def isBlobel( self ):
         return self.__lBlobel
     def getTitle( self ):

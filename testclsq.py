@@ -86,10 +86,10 @@ class clsqSolverTest( unittest.TestCase ):
                                         args=(self.__dodo.xabs,) )
         return
 
-    def test_clsqSolverInversion2( self ):
-        self.__solver.solve2()
-        self.__checkSolution()
-        return
+    # def test_clsqSolverInversion2( self ):
+    #     self.__solver.solve2()
+    #     self.__checkSolution()
+    #     return
     def test_clsqSolverInversion( self ):
         self.__solver.solve()
         self.__checkSolution()
@@ -99,6 +99,10 @@ class clsqSolverTest( unittest.TestCase ):
         self.__solver.solve( lBlobel=True )
         self.__checkSolution()
         return
+    # def test_clsqSolverPartition2( self ):
+    #     self.__solver.solve2( lBlobel=True )
+    #     self.__checkSolution()
+    #     return
 
     def __checkSolution( self ):
         mpars= self.__solver.getMpars()
