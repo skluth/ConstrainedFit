@@ -1,4 +1,93 @@
 
+# Blobels pi-p scattering length example
+# See Blobels lecture Terascale School on data combination and limit setting
+# (DESY, Oct 2011), pg 27
+# S. Kluth 2022
+
+def PiPscattering( opt="" ):
+    
+    from ConstrainedFit import clsq
+
+    # Input    a1      a3     a3'
+    data= [ 0.170, -0.107, -0.104 ]
+    errors= [ 0.0240, 0.0197, 0.006 ]
+    rhoa1a3= -0.391
+    covm= [ [ errors[0]**2, errors[0]*errors[1]*rhoa1a3, 0.0 ],
+            [ errors[0]*errors[1]*rhoa1a3, errors[1]**2, 0.0 ],
+            [ 0.0, 0.0, errors[2]**2 ] ]
+    mpnames= { 0: "a1", 1: "a3", 2: "a3'" }
+
+    # Average is unmeasured fit parameter
+    upar= [ -0.105 ]
+    upname= { 0: "a3avg" }
+
+    # Constraint function for average a3
+    def a3constraint( mpar, upar ):
+        return [ mpar[1] - upar[0],
+                 mpar[2] - upar[0] ]
+
+    # Create solver
+    solver= clsq.clsqSolver( data, covm, upar, a3constraint, epsilon=0.00001,
+                             uparnames=upname, mparnames=mpnames )
+
+    # Print results
+    print( "Constraints before solution" )
+    print( solver.getConstraints() )
+    lBlobel= False
+    if "b" in opt:
+        lBlobel= True
+    solver.solve( lBlobel=lBlobel )
+    lcov= False
+    lcorr= False
+    if "corr" in opt:
+        lcov= True
+        lcorr= True
+    ca= clsq.clsqAnalysis( solver )
+    ca.printResults( cov=lcov, corr=lcorr )
+    if "m" in opt:
+        _doMinosAll( solver, "u" )
+
+    return
+
+# Avarage with normalisation error example
+# See Blobels lecture Terascale School on data combination and limit setting
+# (DESY, Oct 2011), pg 36ff
+# S Kluth 2022
+
+def Average( opt="" ):
+    from ConstrainedFit import clsq
+    data= [ 8.0, 8.5, 1.0 ]
+    errors= [ 0.02*data[0], 0.02*data[1], 0.1 ]
+    covm= clsq.covmFromErrors( errors )
+    mpnames= { 0: "var1", 1: "var2", 2: "norm" }
+    upar= [ 1.0 ]    
+    upname= { 0: "avg" }
+    def avgconstraint( mpar, upar ):
+        var1= mpar[0]
+        var2= mpar[1]
+        norm= mpar[2]
+        avg= upar[0]
+        return [ norm*avg - var1,
+                 norm*avg - var2 ]
+    solver= clsq.clsqSolver( data, covm, upar, avgconstraint, epsilon=0.00001,
+                             uparnames=upname, mparnames=mpnames )
+    print( "Constraints before solution" )
+    print( solver.getConstraints() )
+    lBlobel= False
+    if "b" in opt:
+        lBlobel= True
+    solver.solve( lBlobel=lBlobel )
+    lcov= False
+    lcorr= False
+    if "c" in opt:
+        lcov= True
+        lcorr= True
+    ca= clsq.clsqAnalysis( solver )
+    ca.printResults( cov=lcov, corr=lcorr )
+    if "m" in opt:
+        _doMinosAll( solver, "u" )
+    return
+
 # Blobels branching ratio example
 # See Blobels lecture Terascale School on data combination and limit setting
 # (DESY, Oct 2011)
@@ -18,7 +107,7 @@ def Branchingratios( opt="m" ):
         print( "Apply scaling *2.8 of error[13]" )
         errors[13]= errors[13]*2.8
     covm= clsq.covmFromErrors( errors )
-
+    
     # PDG values as start values, last number is 5.5%, not 0.55 as in br.txt
     upar= [ 0.33, 0.36, 0.16, 0.09, 0.055 ]
     upnames= { 0: "B1", 1: "B2", 2: "B3", 3: "B4", 4: "B5" }
@@ -64,10 +153,7 @@ def Branchingratios( opt="m" ):
     lBlobel= False
     if "b" in opt:
         lBlobel= True
-    lResidual= False
-    if "r" in opt:
-        lResidual= True
-    solver.solve( lBlobel=lBlobel, lResidual=lResidual )
+    solver.solve( lBlobel=lBlobel )
     lcov= False
     lcorr= False
     if "corr" in opt:
@@ -88,7 +174,7 @@ def Branchingratios( opt="m" ):
 # Linear fit with nine data points and additional data to pass
 # coordinate points using optional arguments:
 
-def LinearFit():
+def LinearFit( opt="" ):
 
     from ConstrainedFit import clsq
 
@@ -110,7 +196,10 @@ def LinearFit():
                              uparnames=upnames, args=(xabs,) )
     print( "Constraints before solution" )
     print( solver.getConstraints() )
-    solver.solve()
+    lBlobel= False
+    if "b" in opt:
+        lBlobel= True
+    solver.solve( lBlobel=lBlobel )
     ca= clsq.clsqAnalysis( solver )
     ca.printResults()
 
@@ -262,7 +351,8 @@ def GaussLikelihood( opt="" ):
 
 # Straight line fit to points with errors in x and y, example from
 # Blobels lecture TSTalk_Blobel.pdf pg 29 with values estimated from the plot
-# Derivation of 2D chi^2 see e.g. Botje 2013 https://www.nikhef.nl/~h24/bayes/topical2013.pdf
+# Derivation of 2D chi^2 see e.g. Botje 2013
+# https://www.nikhef.nl/~h24/bayes/topical2013.pdf
 # S Kluth 12.12.2014
 
 def StraightLine( opt="" ):
@@ -408,14 +498,11 @@ def Triangle( opt="" ):
     print( solver.getConstraints() )
     lBlobel= False
     lCorr= False
-    lResidual= True
     if "b" in opt:
         lBlobel= True
     if "corr" in opt:
         lCorr= True
-    if "r" in opt:
-        lResidual= False
-    solver.solve( lBlobel=lBlobel, lResidual=lResidual )
+    solver.solve( lBlobel=lBlobel )
     ca= clsq.clsqAnalysis( solver )
     ca.printResults( corr=lCorr )
 
